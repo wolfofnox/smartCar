@@ -121,13 +121,12 @@ void set_callbacks() {
       AwsFrameInfo *info = (AwsFrameInfo *)arg;
       if (info->final && info->index == 0 && info->len == len) {
         data[len] = 0; // Null-terminate the data
-        log_d("WebSocket message received: %s", data);
+        log_v("WebSocket message received: %s", data);
 
         char *speedPtr = strstr((char *)data, "\"speed\":");
         if (speedPtr) {
             int val = atoi(speedPtr + 8); // Extract and convert the value
             drive(val); // Call the drive function
-            log_d("Speed set to: %d", speed);
         }
 
         // Parse "steering" value
@@ -135,7 +134,6 @@ void set_callbacks() {
         if (steeringPtr) {
             int val = atoi(steeringPtr + 11); // Extract and convert the value
             steer(val); // Call the steer function
-            log_d("Steering set to: %d", steering);
         }
 
         // Parse "top" value
@@ -143,7 +141,6 @@ void set_callbacks() {
         if (topPtr) {
             int val = atoi(topPtr + 6); // Extract and convert the value
             topServoGo(val); // Call the top servo function
-            log_d("Top Servo set to: %d", top);
         }
 
         // Parse "estop" value
@@ -153,7 +150,6 @@ void set_callbacks() {
             steer(90); // Center steering
             drive(0); // Stop the car
             topServoGo(90); // Center top servo
-            log_d("Emergency stop activated. Speed: %d, Steering: %d, Top: %d", speed, steering, top);
         }
       }
     }
@@ -212,7 +208,12 @@ void set_callbacks() {
       "</script>"
     "</body>"
     "</html>",
-    speed/5, steering/5, top/5, WiFi.localIP().toString().c_str()
+    speed/5, steering/5, top/5,
+    #if USE_mDNS == 1
+    mDNS_HOSTNAME
+    #else
+    WiFi.localIP().toString().c_str()
+    #endif
     );
     request->send(200, "text/html", html);
   });
