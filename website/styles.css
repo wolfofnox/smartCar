@@ -1,0 +1,5 @@
+body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+nav { margin-bottom: 20px; }
+a { margin-right: 10px; text-decoration: none; color: #007BFF; }
+.card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.form-control { margin-top: 10px; }

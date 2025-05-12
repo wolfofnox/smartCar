@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Status</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/status">Status</a>
+    <a href="/control">Control</a>
+  </nav>
+  <div class="card">
+    <h1>Status</h1>
+    <p>Local IP: <span id="IP">--</span></p>
+    <p>Uptime: <span id="uptime">--</span></p>
+  </div>
+
+  <script>
+    async function fetchData() {
+      const response = await fetch('/data.json');
+      const data = await response.json();
+      document.getElementById('uptime').textContent = data.uptime;
+      document.getElementById('IP').textContent = data.localIP;
+    }
+    setInterval(fetchData, 3000);
+    fetchData();
+  </script>
+</body>
+</html>
