@@ -22,6 +22,9 @@ const blink_step_t *led_blink_list[BLINK_MAX] = {
     [BLINK_WIFI_AP_STARTED] = wifi_ap_started
 };
 
+servo_handle_t steeringServo = NULL; ///< Handle for the steering servo
+servo_handle_t topServo = NULL; ///< Handle for the throttle servo
+
 #pragma endregion
 
 // --- Define functions ---
@@ -61,7 +64,7 @@ void app_main(void)
         .led_strip_driver = LED_STRIP_SPI,
         .led_strip_spi_cfg = {
             .clk_src = SPI_CLK_SRC_DEFAULT,  ///< SPI clock source
-            .spi_bus = SPI1_HOST,  ///< SPI bus host
+            .spi_bus = SPI3_HOST,  ///< SPI bus host
         },
     };
     led_indicator_config_t led_cfg = {
@@ -77,6 +80,39 @@ void app_main(void)
     }
 
     led_indicator_start(led_handle, BLINK_LOADING); // Start LED indicator with loading animation
+
+    // Configure GPIO for motor and servo control
+    gpio_config_t motor_config = {
+        .pin_bit_mask = (1ULL << PIN_MOT_1) | (1ULL << PIN_MOT_2),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    ESP_ERROR_CHECK(gpio_config(&motor_config));
+    ESP_ERROR_CHECK(gpio_set_level(PIN_MOT_1, 0));
+    ESP_ERROR_CHECK(gpio_set_level(PIN_MOT_2, 0));
+
+    servo_config_t steeringCfg = {
+        .gpio_num = PIN_STEER_SERVO,
+        .min_pulsewidth_us = 1200,
+        .max_pulsewidth_us = 1700,
+        .min_degree = -90,
+        .max_degree = 90,
+        .period_ticks = 20000,
+        .resolution_hz = 1000000,
+    };
+    steeringServo = servo_init(&steeringCfg);
+    servo_config_t topCfg = {
+        .gpio_num = PIN_TOP_SERVO,
+        .min_pulsewidth_us = 500,
+        .max_pulsewidth_us = 2400,
+        .min_degree = -90,
+        .max_degree = 90,
+        .period_ticks = 20000,
+        .resolution_hz = 1000000,
+    };
+    topServo = servo_init(&topCfg);
 
     #if USE_NVS == 1 // Initialize NVS (Non-Volatile Storage)
     ESP_LOGI(__FILE__, "Initializing NVS...");
@@ -96,4 +132,17 @@ void app_main(void)
     bootTime = esp_timer_get_time();
     led_indicator_stop(led_handle, BLINK_LOADING);
     led_indicator_start(led_handle, BLINK_LOADED);
+
+    int angle = 0;
+    int step = 2;
+    while (0) {
+        ESP_LOGI(__FILE__, "Angle of rotation: %d", angle);
+        ESP_ERROR_CHECK(servo_set_angle(steeringServo, angle));
+        vTaskDelay(pdMS_TO_TICKS(100));
+        if ((angle + step) > 100 || (angle + step) < -100) {
+            step *= -1;
+        }
+        angle += step;
+    }
+    
 }
