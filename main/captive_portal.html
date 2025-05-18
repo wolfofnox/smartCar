@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Wi-Fi Setup</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 2em; }
+    form { background: #fff; padding: 2em; border-radius: 8px; max-width: 400px; margin: auto; }
+    label { display: block; margin-top: 1em; }
+    input[type="text"], input[type="password"] { width: 96%; padding: 0.5em; }
+    select { width: 100%; padding: 0.5em; }
+    .section { margin-bottom: 1.5em; }
+    button { margin-top: 1.5em; padding: 0.7em 2em; }
+    #refreshBtn {
+      margin: 0; padding: 0; font-size: 1em; height: 1.8em; width: 1.8em;
+      min-width: 0; border-radius: 20%; align-self: center;
+      display: flex; justify-content: center; align-items: center; line-height: 1;
+    }
+    .ssid-row { display: flex; gap: 0.5em; align-items: center; }
+    </style>
+</head>
+<body>
+  <h2>ESP32 Captive Portal Setup</h2>
+  <form method="POST" action="/captive_portal">
+    <div id="dataWarn" style="display:none; color:red; margin-top:1em;">
+      ⚠️ Failed to load settings. Please check your connection.
+    </div>
+    <div class="section">
+      <label for="ssid">Wi-Fi SSID:</label>
+        <div class="ssid-row">
+            <select id="ssid" name="ssid" required style="flex:1;">
+              <option value="" disabled selected>Loading...</option>
+            </select>
+            <button type="button" id="refreshBtn" title="Refresh Wi-Fi list">⟳</button>
+        </div>
+        <div id="scanWarn" style="display:none; color:red; margin-top:1em;">
+          ⚠️ Wi-Fi scan failed. Please enter SSID manually if needed.
+        </div>
+      </select>
+      <label for="password">Wi-Fi Password:</label>
+      <input type="password" id="password" name="password">
+    </div>
+    <div class="section">
+      <label>
+        <input type="checkbox" id="use_static_ip" name="use_static_ip" value="true" onchange="toggleStaticIP(this)">
+        Use Static IP
+      </label>
+      <div id="static_ip_fields" style="display:none;">
+        <label for="static_ip">Static IP Address:</label>
+        <input type="text" id="static_ip" name="static_ip">
+      </div>
+    </div>
+    <div class="section">
+      <label>
+        <input type="checkbox" id="use_mDNS" name="use_mDNS" value="true" onchange="toggleMDNS(this)">
+        Enable mDNS
+      </label>
+      <div id="mdns_fields" style="display:none;">
+        <label for="mDNS_hostname">mDNS Hostname:</label>
+        <input type="text" id="mDNS_hostname" name="mDNS_hostname">
+        <label for="service_name">Service Name:</label>
+        <input type="text" id="service_name" name="service_name">
+      </div>
+    </div>
+    <button type="submit" id="saveBtn">Save & Connect</button>
+  </form>
+  <script>
+    function toggleStaticIP(cb) {
+      document.getElementById('static_ip_fields').style.display = cb.checked ? 'block' : 'none';
+    }
+    function toggleMDNS(cb) {
+      document.getElementById('mdns_fields').style.display = cb.checked ? 'block' : 'none';
+    }
+    function getSSIDs(sel) {
+      fetch('/scan.json')
+        .then(resp => resp.json())
+        .then(data => {
+          const ssids = (data.aps || []).map(ap => ap.ssid);
+          populateSSIDs(ssids || [], sel)
+        })
+        .catch(() => handleScanFail(sel));
+    }
+    function populateSSIDs(ssids, sel) {
+      let ssidSelect = document.getElementById('ssid');
+      if (ssidSelect.tagName.toLowerCase() === 'input') {
+        const select = document.createElement('select');
+        select.id = 'ssid';
+        select.name = 'ssid';
+        select.required = true;
+        ssidSelect.parentNode.replaceChild(select, ssidSelect);
+        ssidSelect = select;
+      }
+      ssidSelect.innerHTML = '';
+      let found = false;
+      ssids.forEach(ssid => {
+        const opt = document.createElement('option');
+        opt.value = ssid;
+        opt.textContent = ssid;
+        if (ssid === sel) { opt.selected = true; found = true; }
+        ssidSelect.appendChild(opt);
+      });
+      if (!found && sel) {
+        const opt = document.createElement('option');
+        opt.value = sel;
+        opt.textContent = sel + ' (unavailable)';
+        opt.selected = true;
+        ssidSelect.appendChild(opt);
+      }
+      if (!found && !sel) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Select SSID';
+        opt.selected = true;
+        opt.disabled = true;
+        ssidSelect.appendChild(opt);
+      }
+      ssidSelect.required = true;
+      document.getElementById('saveBtn').textContent = 'Save & Connect';
+      const warn = document.getElementById('scanWarn');
+      if (warn) warn.style.display = 'none';
+    }
+    function handleScanFail(sel) {
+      const ssidSelect = document.getElementById('ssid');
+      populateSSIDs([''], sel || '');
+      if (ssidSelect.tagName.toLowerCase() === 'select') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'ssid';
+        input.name = 'ssid';
+        input.value = sel || '';
+        input.placeholder = 'Enter SSID';
+        ssidSelect.parentNode.replaceChild(input, ssidSelect);
+        ssidSelect = input;
+      }
+      ssidSelect.required = false;
+      document.getElementById('saveBtn').textContent = 'Save (no SSID available)';
+      document.getElementById('scanWarn').style.display = 'block';
+  }
+    function loadSettings() {
+      let warn = document.getElementById('dataWarn');
+      fetch('/captive.json')
+        .then(resp => resp.json())
+        .then(cfg => {
+          warn.style.display = 'none';
+          getSSIDs(cfg.ssid || '');
+          if (cfg.password) {
+            document.getElementById('password').value = '';
+            document.getElementById('password').placeholder = '(unchanged)';
+          }
+          document.getElementById('use_static_ip').checked = !!cfg.use_static_ip;
+          document.getElementById('static_ip').value = cfg.static_ip || '';
+          toggleStaticIP(document.getElementById('use_static_ip'));
+          document.getElementById('use_mDNS').checked = !!cfg.use_mDNS;
+          document.getElementById('mDNS_hostname').value = cfg.mDNS_hostname || '';
+          document.getElementById('service_name').value = cfg.service_name || '';
+          toggleMDNS(document.getElementById('use_mDNS'));
+        })
+        .catch(() => {
+          warn.style.display = 'block';
+        });
+    }
+    document.getElementById('refreshBtn').onclick = function() {
+      const current = document.getElementById('ssid').value;
+      getSSIDs(current);
+    }
+    window.onload = loadSettings;
+  </script>
+</body>
+</html>

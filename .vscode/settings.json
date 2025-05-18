@@ -1,0 +1,26 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.espIdfPathWin": "D:\\Coding\\Arduino\\esp\\v5.3.3\\esp-idf",
+  "idf.toolsPathWin": "D:\\Coding\\Arduino\\.espressif",
+  "idf.pythonInstallPath": "D:\\Coding\\Arduino\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  },
+  "idf.portWin": "COM9",
+  "idf.flashType": "UART",
+  "files.associations": {
+    "sdkconfig.h": "c",
+    "stdio.h": "c",
+    "esp_system.h": "c",
+    "freertos.h": "c",
+    "esp_http_server.h": "c",
+    "wifi.h": "c",
+    "cstdint": "c",
+    "format": "c",
+    "cstring": "c",
+    "typeinfo": "c"
+  }
+}
