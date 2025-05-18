@@ -21,6 +21,8 @@
     "cstdint": "c",
     "format": "c",
     "cstring": "c",
-    "typeinfo": "c"
+    "typeinfo": "c",
+    "led_states.h": "c",
+    "esp_timer.h": "c"
   }
 }

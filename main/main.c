@@ -24,6 +24,7 @@ const blink_step_t *led_blink_list[BLINK_MAX] = {
 
 servo_handle_t steeringServo = NULL; ///< Handle for the steering servo
 servo_handle_t topServo = NULL; ///< Handle for the throttle servo
+l298n_motor_handle_t motor = NULL;
 
 #pragma endregion
 
@@ -81,7 +82,7 @@ void app_main(void)
 
     led_indicator_start(led_handle, BLINK_LOADING); // Start LED indicator with loading animation
 
-    // Configure GPIO for motor and servo control
+    // Servo config
     gpio_config_t motor_config = {
         .pin_bit_mask = (1ULL << PIN_MOT_1) | (1ULL << PIN_MOT_2),
         .mode = GPIO_MODE_OUTPUT,
@@ -114,6 +115,18 @@ void app_main(void)
     };
     topServo = servo_init(&topCfg);
 
+    // DC motor config
+    l298n_motor_config_t motorCfg = {
+        .en_pin = PIN_MOT_EN,
+        .in1_pin = PIN_MOT_1,
+        .in2_pin = PIN_MOT_2,
+        .ledc_channel = LEDC_CHANNEL_0,
+        .ledc_mode = LEDC_LOW_SPEED_MODE,
+        .ledc_timer = LEDC_TIMER_0,
+        .pwm_freq_hz = 5000
+    };
+    motor = l298n_motor_init(&motorCfg);
+
     #if USE_NVS == 1 // Initialize NVS (Non-Volatile Storage)
     ESP_LOGI(__FILE__, "Initializing NVS...");
     esp_err_t ret = nvs_flash_init();
@@ -133,16 +146,16 @@ void app_main(void)
     led_indicator_stop(led_handle, BLINK_LOADING);
     led_indicator_start(led_handle, BLINK_LOADED);
 
-    int angle = 0;
-    int step = 2;
+    int speed = 0;
+    int step = 5;
     while (0) {
-        ESP_LOGI(__FILE__, "Angle of rotation: %d", angle);
-        ESP_ERROR_CHECK(servo_set_angle(steeringServo, angle));
+        ESP_LOGI(__FILE__, "Speedn: %d", speed);
+        ESP_ERROR_CHECK(l298n_motor_set_speed(motor, speed));
         vTaskDelay(pdMS_TO_TICKS(100));
-        if ((angle + step) > 100 || (angle + step) < -100) {
+        if ((speed + step) > 100 || (speed + step) < -100) {
             step *= -1;
         }
-        angle += step;
+        speed += step;
     }
     
 }

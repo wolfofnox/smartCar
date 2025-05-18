@@ -13,8 +13,10 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 
-#include "servo.h"
 #include "led_states.h"
+
+#include "servo.h"
+#include "l298n_motor.h"
 #pragma endregion
 
 // --- Pin Config ---
