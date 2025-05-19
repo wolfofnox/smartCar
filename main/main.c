@@ -10,6 +10,8 @@
 int64_t bootTime;   ///< System boot time in microseconds
 bool ledOn = false; ///< LED state (on/off)
 
+static esp_adc_cal_characteristics_t adc_chars;
+
 led_indicator_handle_t led_handle; ///< Handle for the LED indicator
 const blink_step_t *led_blink_list[BLINK_MAX] = {
     [BLINK_OFF] = off,
@@ -30,6 +32,11 @@ l298n_motor_handle_t motor = NULL;
 
 // --- Define functions ---
 #pragma region Functions
+
+float get_battery_voltage();
+void check_battery();
+void shutdown();
+void check_battery_task(void *pvParameter);
 
 #pragma endregion
 
@@ -127,6 +134,14 @@ void app_main(void)
     };
     motor = l298n_motor_init(&motorCfg);
 
+    // init ADC
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(ADC_CHANNEL_BAT_VOLT, ADC_ATTEN_DB_12);
+
+    esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+
+    xTaskCreate(check_battery_task, "check_battery_task", 4096, NULL, 6, NULL);
+
     #if USE_NVS == 1 // Initialize NVS (Non-Volatile Storage)
     ESP_LOGI(__FILE__, "Initializing NVS...");
     esp_err_t ret = nvs_flash_init();
@@ -157,5 +172,50 @@ void app_main(void)
         }
         speed += step;
     }
-    
+}
+
+float get_battery_voltage() {
+    uint32_t voltage_mv;
+    esp_adc_cal_get_voltage(ADC_CHANNEL_BAT_VOLT, &adc_chars, &voltage_mv);
+    return voltage_mv / 1000.0 * BATTERY_VOLTAGE_MULTIPLIER;
+}
+
+void check_battery() {
+    const char *TAG = "check_battery";
+    float voltage = get_battery_voltage();
+    #if BATTERY_TYPE == BATTERY_WALL_ADAPTER
+
+    #elif BATTERY_TYPE == BATTERY_6xNiMH
+        if (voltage < 1) {
+            voltage = 0;
+            ESP_LOGW(TAG, "Battery not connected! (Voltage too low)");
+            return;
+        }
+        if (voltage < 6.0) {
+            ESP_LOGW(TAG, "Battery voltage critical: %fV", voltage);
+            ESP_LOGW(TAG, "Please charge the batteries!");
+            ESP_LOGW(TAG, "Shutting down...");
+            // shutdown();
+            return;
+        }
+        if (voltage < 7.0) {
+            ESP_LOGW(TAG, "Battery voltage low: %fV", voltage);
+        }
+    #endif
+}
+
+void shutdown() {
+    servo_deinit(steeringServo);
+    servo_deinit(topServo);
+    l298n_motor_deinit(motor);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    gpio_set_level(PIN_3V3_BUS, 0);
+    esp_deep_sleep_start();
+}
+
+void check_battery_task(void *pvParameter) {
+    while (1) {
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        check_battery();
+    }
 }

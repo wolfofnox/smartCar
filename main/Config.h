@@ -17,6 +17,9 @@
 
 #include "servo.h"
 #include "l298n_motor.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
+#include "esp_sleep.h"
 #pragma endregion
 
 // --- Pin Config ---
@@ -33,7 +36,7 @@
 #define PIN_MOT_EN 38
 #define PIN_STEER_SERVO 48
 #define PIN_TOP_SERVO 21
-#define PIN_BAT_VOLT 8     ///< Battery voltage devider pin
+#define ADC_CHANNEL_BAT_VOLT ADC1_CHANNEL_7     ///< Battery voltage devider pin 8
 #pragma endregion
 
 // --- CONFIG ---
