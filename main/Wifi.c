@@ -1,5 +1,5 @@
-#if USE_WiFi
 #include "Wifi.h"
+#if USE_WiFi
 
 /**
  * @file Wifi.c
