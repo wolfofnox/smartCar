@@ -23,6 +23,7 @@
     "cstring": "c",
     "typeinfo": "c",
     "led_states.h": "c",
-    "esp_timer.h": "c"
+    "esp_timer.h": "c",
+    "task.h": "c"
   }
 }

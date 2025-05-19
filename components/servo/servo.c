@@ -1,10 +1,19 @@
 #include "servo.h"
 
+typedef struct {
+    uint32_t min_pulsewidth_us;
+    uint32_t max_pulsewidth_us;
+    int8_t min_degree;
+    int8_t max_degree;
+    mcpwm_cmpr_handle_t cmpr;
+    int8_t angle;
+} servo_t;
+
 servo_handle_t servo_init(servo_config_t *config) {
     const char* TAG = "servo_init";
     servo_t *servo = calloc(1, sizeof(servo_t));
     if (!servo) {
-        ESP_LOGE("TAG", "Failed servo struct allocation: Out of memory, returning NULL");
+        ESP_LOGE(TAG, "Failed servo struct allocation: Out of memory, returning NULL");
         return NULL;
     }
 
@@ -61,26 +70,43 @@ servo_handle_t servo_init(servo_config_t *config) {
 }
 
 esp_err_t servo_set_angle(servo_handle_t servo, int8_t angle) {
-    servo_t *srv = servo;
+    servo_t *srv = (servo_t *)servo;
     if (angle > srv->max_degree) {
         angle = srv->max_degree;
     } else if (angle < srv->min_degree) {
         angle = srv->min_degree;
     }
+    srv->angle = angle;
     uint32_t cmp_ticks = (90 + angle) * (srv->max_pulsewidth_us - srv->min_pulsewidth_us) / 180 + srv->min_pulsewidth_us;
     return mcpwm_comparator_set_compare_value(srv->cmpr, cmp_ticks);
 }
 
 esp_err_t servo_set_nim_max_degree(servo_handle_t servo, int8_t min_degree, int8_t max_degree) {
-    servo_t *srv = servo;
+    servo_t *srv = (servo_t *)servo;
     srv->max_degree = max_degree;
     srv->min_degree = min_degree;
     return ESP_OK;
 }
 
 esp_err_t servo_set_nim_max_pulsewidth(servo_handle_t servo, int32_t min_pulsewidth_us, int32_t max_pulsewidth_us) {
-    servo_t *srv = servo;
+    servo_t *srv = (servo_t *)servo;
     srv->max_pulsewidth_us = max_pulsewidth_us;
     srv->min_pulsewidth_us = min_pulsewidth_us;
+    return ESP_OK;
+}
+
+esp_err_t servo_deinit(servo_handle_t servo) {
+    const char *TAG = "servo_deinit";
+    if (!servo) return ESP_ERR_INVALID_ARG;
+    servo_t *srv = (servo_t *)servo;
+
+    // Stop and disable timer?  - add to struct
+
+    // Clean up comparator
+    ESP_RETURN_ON_ERROR(mcpwm_del_comparator(srv->cmpr), TAG, "Failed to delete comparator");
+
+    // Clean up generator, timer, operator? - add to struct
+
+    free(srv);
     return ESP_OK;
 }
