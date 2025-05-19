@@ -66,7 +66,7 @@ servo_handle_t servo_init(servo_config_t *config) {
     servo->max_pulsewidth_us = config->max_pulsewidth_us;
     servo->min_pulsewidth_us = config->min_pulsewidth_us;
 
-    return servo;
+    return (servo_handle_t)servo;
 }
 
 esp_err_t servo_set_angle(servo_handle_t servo, int8_t angle) {
@@ -93,6 +93,11 @@ esp_err_t servo_set_nim_max_pulsewidth(servo_handle_t servo, int32_t min_pulsewi
     srv->max_pulsewidth_us = max_pulsewidth_us;
     srv->min_pulsewidth_us = min_pulsewidth_us;
     return ESP_OK;
+}
+
+int8_t servo_get_angle(servo_handle_t servo) {
+    servo_t *srv = (servo_t *)servo;
+    return srv->angle;
 }
 
 esp_err_t servo_deinit(servo_handle_t servo) {
