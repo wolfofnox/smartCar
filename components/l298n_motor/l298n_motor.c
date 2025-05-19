@@ -85,13 +85,13 @@ l298n_motor_handle_t l298n_motor_init(const l298n_motor_config_t *config) {
     ledc_set_duty(motor->ledc_mode, motor->ledc_channel, 0);
     ledc_update_duty(motor->ledc_mode, motor->ledc_channel);
 
-    return motor;
+    return (l298n_motor_handle_t)motor;
 }
 
 esp_err_t l298n_motor_set_speed(l298n_motor_handle_t motor, int8_t speed_percent) {
     const char *TAG = "l298n_motor_set_speed";
     if (!motor) return ESP_ERR_INVALID_ARG;
-    l298n_motor_t *mtr = motor;
+    l298n_motor_t *mtr = (l298n_motor_t *)motor;
 
     if (speed_percent > 100) speed_percent = 100;
     if (speed_percent < -100) speed_percent = -100;
@@ -125,13 +125,18 @@ esp_err_t l298n_motor_stop(l298n_motor_handle_t motor) {
     return l298n_motor_set_speed(motor, 0);
 }
 
+int8_t l298n_motor_get_speed(l298n_motor_handle_t motor) {
+    l298n_motor_t *mtr = (l298n_motor_t *)motor;
+    return mtr->speed;
+}
+
 esp_err_t l298n_motor_deinit(l298n_motor_handle_t motor) {
     const char *TAG = "l298n_motor_deinit";
     if (!motor) return ESP_ERR_INVALID_ARG;
-    l298n_motor_t *mtr = motor;
+    l298n_motor_t *mtr = (l298n_motor_t *)motor;
 
     // Stop motor
-    l298n_motor_stop(mtr);
+    l298n_motor_stop(motor);
 
     ESP_RETURN_ON_ERROR(ledc_stop(mtr->ledc_mode, mtr->ledc_channel, 0), TAG, "failed to stop ledc");
 
