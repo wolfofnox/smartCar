@@ -10,7 +10,8 @@
 int64_t bootTime;   ///< System boot time in microseconds
 bool ledOn = false; ///< LED state (on/off)
 
-static esp_adc_cal_characteristics_t adc_chars;
+adc_cali_handle_t adc_cali;
+adc_oneshot_unit_handle_t adc_unit;
 
 led_indicator_handle_t led_handle; ///< Handle for the LED indicator
 const blink_step_t *led_blink_list[BLINK_MAX] = {
@@ -136,10 +137,26 @@ void app_main(void)
     motor = l298n_motor_init(&motorCfg);
 
     // init ADC
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC_CHANNEL_BAT_VOLT, ADC_ATTEN_DB_12);
+    adc_oneshot_unit_init_cfg_t adc_unit_cfg = {
+        .unit_id = ADC_UNIT_BAT_VOLT,
+        .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
+        .ulp_mode = ADC_ULP_MODE_DISABLE
+    };
+    adc_oneshot_new_unit(&adc_unit_cfg, &adc_unit);
 
-    esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &adc_chars);
+    adc_oneshot_chan_cfg_t chan_cfg = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_12
+    };
+    adc_oneshot_config_channel(adc_unit, ADC_CHANNEL_BAT_VOLT, &chan_cfg);
+
+    adc_cali_curve_fitting_config_t adc_cali_cfg = {
+        .unit_id = ADC_UNIT_BAT_VOLT,
+        .chan = ADC_CHANNEL_BAT_VOLT,
+        .bitwidth = ADC_BITWIDTH_12,
+        .atten = ADC_ATTEN_DB_12
+    };
+    adc_cali_create_scheme_curve_fitting(&adc_cali_cfg, &adc_cali);
 
     xTaskCreate(check_battery_task, "check_battery_task", 4096, NULL, 6, NULL);
 
@@ -177,7 +194,7 @@ void app_main(void)
 
 float get_battery_voltage() {
     uint32_t voltage_mv;
-    esp_adc_cal_get_voltage(ADC_CHANNEL_BAT_VOLT, &adc_chars, &voltage_mv);
+    adc_oneshot_get_calibrated_result(adc_unit, adc_cali, ADC_CHANNEL_BAT_VOLT, &voltage_mv);
     return voltage_mv / 1000.0 * BATTERY_VOLTAGE_MULTIPLIER;
 }
 

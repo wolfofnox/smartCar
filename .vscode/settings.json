@@ -24,6 +24,8 @@
     "typeinfo": "c",
     "led_states.h": "c",
     "esp_timer.h": "c",
-    "task.h": "c"
+    "task.h": "c",
+    "esp_adc_cal.h": "c",
+    "adc_cali_scheme.h": "c"
   }
 }

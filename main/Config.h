@@ -17,8 +17,8 @@
 
 #include "servo.h"
 #include "l298n_motor.h"
-#include "driver/adc.h"
-#include "esp_adc_cal.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali_scheme.h"
 #include "esp_sleep.h"
 #pragma endregion
 
@@ -36,7 +36,8 @@
 #define PIN_MOT_EN 38
 #define PIN_STEER_SERVO 48
 #define PIN_TOP_SERVO 21
-#define ADC_CHANNEL_BAT_VOLT ADC1_CHANNEL_7     ///< Battery voltage devider pin 8
+#define ADC_UNIT_BAT_VOLT ADC_UNIT_1
+#define ADC_CHANNEL_BAT_VOLT ADC_CHANNEL_7     ///< Battery voltage devider pin 8
 #pragma endregion
 
 // --- CONFIG ---
@@ -73,7 +74,7 @@
     #define NVS_NAMESPACE_USER "user_settings" ///< NVS namespace for user settings
 #endif
 
-#define USE_WiFi             0  ///< Use WiFi in station mode (1/0 = yes/no)
+#define USE_WiFi             1  ///< Use WiFi in station mode (1/0 = yes/no)
 #define USE_mDNS             1  ///< Use mDNS (1/0 = yes/no)
 #define USE_SD_SERVER        0  ///< Use SD card (1/0 = yes/no)
 #if USE_WiFi == 1
