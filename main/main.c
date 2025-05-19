@@ -35,7 +35,7 @@ l298n_motor_handle_t motor = NULL;
 
 float get_battery_voltage();
 void check_battery();
-void shutdown();
+void deep_sleep();
 void check_battery_task(void *pvParameter);
 
 #pragma endregion
@@ -46,6 +46,7 @@ void app_main(void)
     // Set log level
     esp_log_level_set("*", LOG_LEVEL_GLOBAL);
     esp_log_level_set(__FILE__, LOG_LEVEL_SOURCE);
+    esp_log_level_set("Web socket", ESP_LOG_DEBUG);
     ESP_LOGI(__FILE__, "START %s from %s", __FILE__, __DATE__);
     ESP_LOGI(__FILE__, "Setting up...");
     
@@ -195,7 +196,7 @@ void check_battery() {
             ESP_LOGW(TAG, "Battery voltage critical: %fV", voltage);
             ESP_LOGW(TAG, "Please charge the batteries!");
             ESP_LOGW(TAG, "Shutting down...");
-            // shutdown();
+            // deep_sleep();
             return;
         }
         if (voltage < 7.0) {
@@ -204,7 +205,7 @@ void check_battery() {
     #endif
 }
 
-void shutdown() {
+void deep_sleep() {
     servo_deinit(steeringServo);
     servo_deinit(topServo);
     l298n_motor_deinit(motor);
