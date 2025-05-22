@@ -27,5 +27,6 @@
     "task.h": "c",
     "esp_adc_cal.h": "c",
     "adc_cali_scheme.h": "c"
-  }
+  },
+  "C_Cpp.dimInactiveRegions": true
 }

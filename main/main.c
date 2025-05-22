@@ -13,6 +13,8 @@ bool ledOn = false; ///< LED state (on/off)
 adc_cali_handle_t adc_cali;
 adc_oneshot_unit_handle_t adc_unit;
 
+SSD1306_t display;
+
 led_indicator_handle_t led_handle; ///< Handle for the LED indicator
 const blink_step_t *led_blink_list[BLINK_MAX] = {
     [BLINK_OFF] = off,
@@ -90,6 +92,13 @@ void app_main(void)
     }
 
     led_indicator_start(led_handle, BLINK_LOADING); // Start LED indicator with loading animation
+
+    // SSD1306 display config
+    i2c_master_init(&display, PIN_I2C_SDA, PIN_I2C_SCL, -1);
+    display._flip = true;
+    ssd1306_init(&display, 128, 64);
+    ssd1306_clear_screen(&display, false);
+    ssd1306_contrast(&display, 0xff);
 
     // Servo config
     gpio_config_t motor_config = {
@@ -201,23 +210,29 @@ float get_battery_voltage() {
 void check_battery() {
     const char *TAG = "check_battery";
     float voltage = get_battery_voltage();
+    char buff[32];
+    snprintf(buff, sizeof(buff), "%2.2fV", voltage);
+    ssd1306_clear_line(&display, 2, false);
+    ssd1306_clear_line(&display, 3, false);
+    ssd1306_display_text(&display, 1, "Voltage:", 8, false);
+    ssd1306_display_text(&display, 2, buff, strlen(buff), false);
     #if BATTERY_TYPE == BATTERY_WALL_ADAPTER
 
     #elif BATTERY_TYPE == BATTERY_6xNiMH
         if (voltage < 1) {
             voltage = 0;
-            ESP_LOGW(TAG, "Battery not connected! (Voltage too low)");
+            ssd1306_display_text(&display, 3, "Connect battery", 15, false);
             return;
         }
         if (voltage < 6.0) {
-            ESP_LOGW(TAG, "Battery voltage critical: %fV", voltage);
+            ESP_LOGE(TAG, "Battery voltage critical: %fV", voltage);
             ESP_LOGW(TAG, "Please charge the batteries!");
             ESP_LOGW(TAG, "Shutting down...");
             // deep_sleep();
             return;
         }
         if (voltage < 7.0) {
-            ESP_LOGW(TAG, "Battery voltage low: %fV", voltage);
+            ssd1306_display_text(&display, 3, "Battery low!", 13, true);
         }
     #endif
 }

@@ -20,6 +20,8 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_sleep.h"
+#include "ssd1306.h"
+#include "font8x8_basic.h"
 #pragma endregion
 
 // --- Pin Config ---
@@ -31,6 +33,8 @@
 #define PIN_SPI_SCK 12      ///< SPI uŠup clock pin (SPI2)
 #define PIN_SPI_MOSI 11     ///< SPI uŠup MOSI pin (SPI2)
 #define PIN_SPI_MISO 13     ///< SPI uŠup MISO pin (SPI2)
+#define PIN_I2C_SCL 2   
+#define PIN_I2C_SDA 42
 #define PIN_MOT_1 37
 #define PIN_MOT_2 36
 #define PIN_MOT_EN 38
