@@ -250,8 +250,8 @@ esp_err_t slider_handler(httpd_req_t* req) {
           "ws.send(msg);"
           "console.log('Message sent:', msg);"
           "document.getElementById('speed').value = 0;"
-          "document.getElementById('steering').value = 18;"
-          "document.getElementById('top').value = 18;"
+          "document.getElementById('steering').value = 0;"
+          "document.getElementById('top').value = 0;"
         "});"
         "sendSliderValue('speed');"
         "sendSliderValue('steering');"
@@ -289,7 +289,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
         return ret;
     }
 
-    ESP_LOGI("WS", "Received: %s", (char *)ws_pkt.payload);
+    ESP_LOGV("WS", "Received: %s", (char *)ws_pkt.payload);
 
     char *speedPtr = strstr((char *)ws_pkt.payload, "\"speed\":");
     if (speedPtr) {
