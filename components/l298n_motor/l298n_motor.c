@@ -19,7 +19,7 @@ l298n_motor_handle_t l298n_motor_init(const l298n_motor_config_t *config) {
     const char *TAG = "l298n_motor_init";
     if (!config) return NULL;
 
-    l298n_motor_t *motor = malloc(sizeof(l298n_motor_t));
+    l298n_motor_t *motor = calloc(1, sizeof(l298n_motor_t));
     if (!motor) {
         ESP_LOGE(TAG, "failed to allocate motor struct");
         return NULL;
@@ -151,4 +151,22 @@ esp_err_t l298n_motor_deinit(l298n_motor_handle_t motor) {
 
     free(mtr);
     return ESP_OK;
+}
+
+l298n_motor_config_t *l298n_motor_get_config(l298n_motor_handle_t motor) {
+    if (!motor) return NULL;
+    l298n_motor_t *mtr = (l298n_motor_t *)motor;
+
+    l298n_motor_config_t *config = calloc(1, sizeof(l298n_motor_config_t));
+    if (!config) return NULL;
+
+    config->in1_pin = mtr->in1_pin;
+    config->in2_pin = mtr->in2_pin;
+    config->en_pin = mtr->en_pin;
+    config->ledc_channel = mtr->ledc_channel;
+    config->ledc_timer = mtr->ledc_timer;
+    config->ledc_mode = mtr->ledc_mode;
+    config->pwm_freq_hz = ledc_get_freq(mtr->ledc_mode, mtr->ledc_timer);
+
+    return config;
 }

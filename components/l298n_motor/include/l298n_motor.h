@@ -24,3 +24,4 @@ esp_err_t l298n_motor_set_speed(l298n_motor_handle_t motor, int8_t speed_percent
 esp_err_t l298n_motor_stop(l298n_motor_handle_t motor);
 int8_t l298n_motor_get_speed(l298n_motor_handle_t motor);
 esp_err_t l298n_motor_deinit(l298n_motor_handle_t motor);
+l298n_motor_config_t *l298n_motor_get_config(l298n_motor_handle_t motor);
