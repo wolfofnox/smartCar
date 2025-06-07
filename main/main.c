@@ -202,7 +202,7 @@ void app_main(void)
 }
 
 float get_battery_voltage() {
-    uint32_t voltage_mv;
+    int32_t voltage_mv;
     adc_oneshot_get_calibrated_result(adc_unit, adc_cali, ADC_CHANNEL_BAT_VOLT, &voltage_mv);
     return voltage_mv / 1000.0 * BATTERY_VOLTAGE_MULTIPLIER;
 }
@@ -228,7 +228,7 @@ void check_battery() {
             ESP_LOGE(TAG, "Battery voltage critical: %fV", voltage);
             ESP_LOGW(TAG, "Please charge the batteries!");
             ESP_LOGW(TAG, "Shutting down...");
-            // deep_sleep();
+            deep_sleep();
             return;
         }
         if (voltage < 7.0) {
