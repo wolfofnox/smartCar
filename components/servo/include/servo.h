@@ -22,3 +22,4 @@ esp_err_t servo_set_nim_max_degree(servo_handle_t servo, int8_t min_angle, int8_
 esp_err_t servo_set_nim_max_pulsewidth(servo_handle_t servo, int32_t min_pulsewidth_us, int32_t max_pulsewidth_us);
 int8_t servo_get_angle(servo_handle_t servo);
 esp_err_t servo_deinit(servo_handle_t servo);
+servo_config_t *servo_get_config(servo_handle_t servo);

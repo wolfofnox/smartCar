@@ -5,6 +5,9 @@ typedef struct {
     uint32_t max_pulsewidth_us;
     int8_t min_degree;
     int8_t max_degree;
+    uint32_t resolution_hz;
+    uint32_t period_ticks;
+    int gpio_num;
     mcpwm_cmpr_handle_t cmpr;
     int8_t angle;
 } servo_t;
@@ -65,6 +68,10 @@ servo_handle_t servo_init(servo_config_t *config) {
     servo->min_degree = config->min_degree;
     servo->max_pulsewidth_us = config->max_pulsewidth_us;
     servo->min_pulsewidth_us = config->min_pulsewidth_us;
+    servo->resolution_hz = config->resolution_hz;
+    servo->period_ticks = config->period_ticks;
+    servo->gpio_num = config->gpio_num;
+    servo->angle = 0; // Initialize angle to 0
 
     return (servo_handle_t)servo;
 }
@@ -114,4 +121,29 @@ esp_err_t servo_deinit(servo_handle_t servo) {
 
     free(srv);
     return ESP_OK;
+}
+
+servo_config_t *servo_get_config(servo_handle_t servo) {
+    const char *TAG = "servo_get_config";
+    if (!servo) {
+        ESP_LOGE(TAG, "Servo handle is NULL");
+        return NULL;
+    }
+    servo_t *srv = (servo_t *)servo;
+
+    servo_config_t *config = calloc(1, sizeof(servo_config_t));
+    if (!config) {
+        ESP_LOGE(TAG, "Failed to allocate memory for servo config");
+        return NULL;
+    }
+
+    config->min_pulsewidth_us = srv->min_pulsewidth_us;
+    config->max_pulsewidth_us = srv->max_pulsewidth_us;
+    config->min_degree = srv->min_degree;
+    config->max_degree = srv->max_degree;
+    config->resolution_hz = -1;
+    config->period_ticks = -1;
+    config->gpio_num = -1;
+
+    return config;
 }
