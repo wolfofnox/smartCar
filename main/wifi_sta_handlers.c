@@ -49,14 +49,6 @@ void set_handlers() {
     };
     httpd_register_uri_handler(server, &ws_uri);
 
-    httpd_uri_t slider_uri = {
-        .uri = "/slider",
-        .method = HTTP_GET,
-        .handler = slider_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &slider_uri);
-
     httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, not_found_handler);
 }
 
@@ -108,60 +100,11 @@ esp_err_t status_handler(httpd_req_t *req) {
                                   "<body>"
                                   "<h1>ESP32 Status</h1>"
                                   "<p>Uptime: %hud, %uh, %lum, %lus</p>"
-                                  "<p>LED State: %s</p>"
-                                  "<p>LED Color: #%06lx</p>"
                                   "<p>Local IP: %s</p>"
                                   "</body>"
                                   "</html>",
-             time_d, time_h, time_m, time_s, (ledOn ? "On" : "Off"), led_indicator_get_rgb(led_handle), ip_str);
+             time_d, time_h, time_m, time_s, ip_str);
     httpd_resp_send(req, html, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
-}
-
-/**
- * @brief HTTP handler for /control endpoint (returns HTML control page).
- */
-esp_err_t control_handler(httpd_req_t *req) {
-    char query[128];
-    size_t query_len = httpd_req_get_url_query_len(req) + 1;
-    if (query_len > 1) {
-        httpd_req_get_url_query_str(req, query, query_len);
-        char param[32];
-        if (httpd_query_key_value(query, "led", param, sizeof(param)) == ESP_OK) {
-            if (strcmp(param, "on") == 0) {
-                ESP_LOGV(__FILE__, "Set LED state: on");
-                ledOn = true;
-                led_indicator_set_on_off(led_handle, true);
-            } else {
-                ESP_LOGV(__FILE__, "Set LED state: off");
-                ledOn = false;
-                led_indicator_set_on_off(led_handle, false);
-            }
-        }
-        if (httpd_query_key_value(query, "color", param, sizeof(param)) == ESP_OK) {
-            ESP_LOGD(__FILE__, "Set color value: %s", param);
-            ESP_LOGV(__FILE__, "Set color value: 0x%06lx", strtol(param + 1, NULL, 16));
-            led_indicator_set_rgb(led_handle, strtol(param + 1, NULL, 16));
-        }
-        httpd_resp_set_status(req, "302 Temporary Redirect");
-        httpd_resp_set_hdr(req, "Location", "/control");
-        httpd_resp_send(req, "Control updated", HTTPD_RESP_USE_STRLEN);
-    }
-    httpd_resp_send(req, "<!DOCTYPE html>"
-                         "<html>"
-                         "<head><title>ESP32 Control Page</title></head>"
-                         "<body>"
-                         "<h1>Control Page</h1>"
-                         "<p>Control your ESP32 here:</p>"
-                         "<ul>"
-                         "<li><a href=\"/control?led=on\">Turn LED On</a></li>"
-                         "<li><a href=\"/control?led=off\">Turn LED Off</a></li>"
-                         "<li>Set LED Color: <a href=\"/control?color=xff0000\">Red</a>, "
-                         "<a href=\"/control?color=x00ff00\">Green</a>, "
-                         "<a href=\"/control?color=x0000ff\">Blue</a></li>"
-                         "</ul>"
-                         "</body>"
-                         "</html>", HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -190,15 +133,15 @@ esp_err_t data_json_handler(httpd_req_t *req) {
     } else {
         strcpy(ip_str, "N/A");
     }
-    snprintf(json, sizeof(json), "{\"ledState\": \"%s\", \"uptime\": %lli, \"ledColor\": \"#%06lx\", \"localIP\": \"%s\"}",  
-             (ledOn ? "on" : "off"), (esp_timer_get_time() - bootTime) / 1000, led_indicator_get_rgb(led_handle), ip_str);
+    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"localIP\": \"%s\"}",  
+             (esp_timer_get_time() - bootTime) / 1000, ip_str);
     ESP_LOGD(__FILE__, "JSON data requested: %s", json);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json, strlen(json));
     return ESP_OK;
 }
 
-esp_err_t slider_handler(httpd_req_t* req) {
+esp_err_t control_handler(httpd_req_t* req) {
     char html[2048]; // Adjust size as needed
     char ip_str[IP4ADDR_STRLEN_MAX];
     esp_netif_ip_info_t ip_info;
@@ -311,7 +254,6 @@ esp_err_t websocket_handler(httpd_req_t *req) {
 
     char *estopPtr = strstr((char *)ws_pkt.payload, "\"estop\":");
     if (estopPtr) {
-        ledOn = false; // Emergency stop: turn off LED
         servo_set_angle(steeringServo, 0);
         servo_set_angle(topServo, 0);
         l298n_motor_set_speed(motor, 0);

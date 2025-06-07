@@ -9,9 +9,7 @@
 #include "lwip/inet.h"
 
 extern int64_t bootTime;  ///< System boot time in microseconds
-extern bool ledOn;        ///< LED state (on/off)
 
-extern led_indicator_handle_t led_handle; ///< Handle for the LED indicator
 extern httpd_handle_t server; ///< HTTP server handle
 extern esp_netif_t *ap_netif, *sta_netif;
 
@@ -26,7 +24,6 @@ esp_err_t status_handler(httpd_req_t* req);
 esp_err_t control_handler(httpd_req_t* req);
 esp_err_t restart_handler(httpd_req_t* req);
 esp_err_t data_json_handler(httpd_req_t* req);
-esp_err_t slider_handler(httpd_req_t* req);
 esp_err_t websocket_handler(httpd_req_t *req);
 
 #endif // WIFI_STA_HANDLERS_H

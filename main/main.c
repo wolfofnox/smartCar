@@ -8,7 +8,6 @@
 #pragma region Variables
 
 int64_t bootTime;   ///< System boot time in microseconds
-bool ledOn = false; ///< LED state (on/off)
 
 adc_cali_handle_t adc_cali;
 adc_oneshot_unit_handle_t adc_unit;
