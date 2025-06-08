@@ -234,9 +234,15 @@ esp_err_t control_handler(httpd_req_t* req) {
 esp_err_t websocket_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
         // Initial handshake, just return OK
-        ESP_LOGI("WS", "WebSocket connection established");
+        ESP_LOGI("Web socket", "WebSocket connection established");
         return ESP_OK;
     }
+    wifi_ps_type_t ps_type;
+    esp_wifi_get_ps(&ps_type);
+    if (ps_type != WIFI_PS_NONE) {
+        esp_wifi_set_ps(WIFI_PS_NONE); // Disable power save mode for WebSocket
+    }
+    ws_watchdog_start(); // Start the watchdog timer
 
     // Handle incoming WebSocket frame
     httpd_ws_frame_t ws_pkt;
@@ -256,24 +262,27 @@ esp_err_t websocket_handler(httpd_req_t *req) {
         return ret;
     }
 
-    ESP_LOGV("WS", "Received: %s", (char *)ws_pkt.payload);
+    ESP_LOGV("Web socket", "Received: %s", (char *)ws_pkt.payload);
 
     char *speedPtr = strstr((char *)ws_pkt.payload, "\"speed\":");
     if (speedPtr) {
         int val = atoi(speedPtr + 8); // Extract and convert the value
         l298n_motor_set_speed(motor, val);
+        ESP_LOGV("Web socket", "Set motor speed to %d", val);
     }
 
     char *steeringPtr = strstr((char *)ws_pkt.payload, "\"steering\":");
     if (steeringPtr) {
         int val = atoi(steeringPtr + 11); // Extract and convert the value
         servo_set_angle(steeringServo, val);
+        ESP_LOGV("Web socket", "Set steering angle to %d", val);
     }
 
     char *topPtr = strstr((char *)ws_pkt.payload, "\"top\":");
     if (topPtr) {
         int val = atoi(topPtr + 6); // Extract and convert the value
         servo_set_angle(topServo, val);
+        ESP_LOGV("Web socket", "Set top servo angle to %d", val);
     }
 
     char *estopPtr = strstr((char *)ws_pkt.payload, "\"estop\":");
@@ -281,8 +290,24 @@ esp_err_t websocket_handler(httpd_req_t *req) {
         servo_set_angle(steeringServo, 0);
         servo_set_angle(topServo, 0);
         l298n_motor_set_speed(motor, 0);
+        ESP_LOGW("Web socket", "Emergency stop activated");
     }
 
     free(ws_pkt.payload);
     return ESP_OK;
+}
+
+void ws_watchdog_callback(TimerHandle_t xTimer) {
+    ESP_LOGD("Web socket", "WebSocket timed out, resetting power save mode");
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM); // Re-enable power save mode
+}
+
+void ws_watchdog_start() {
+    if (ws_watchdog_timer != NULL) {
+        xTimerStop(ws_watchdog_timer, 0);
+    }
+    if (ws_watchdog_timer == NULL) {
+        ws_watchdog_timer = xTimerCreate("ws_watchdog", pdMS_TO_TICKS(5000), pdFALSE, NULL, ws_watchdog_callback);
+    }
+    xTimerStart(ws_watchdog_timer, 0);
 }

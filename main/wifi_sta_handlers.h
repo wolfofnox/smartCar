@@ -26,5 +26,7 @@ esp_err_t control_handler(httpd_req_t* req);
 esp_err_t restart_handler(httpd_req_t* req);
 esp_err_t data_json_handler(httpd_req_t* req);
 esp_err_t websocket_handler(httpd_req_t *req);
+void ws_watchdog_callback(TimerHandle_t xTimer);
+void ws_watchdog_start();
 
 #endif // WIFI_STA_HANDLERS_H
