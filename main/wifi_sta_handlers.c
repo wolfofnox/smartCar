@@ -8,6 +8,14 @@
 void set_handlers() {
     ESP_LOGI(__FILE__, "Setting up uri handlers...");
 
+    httpd_uri_t root_uri = {
+        .uri = "/",
+        .method = HTTP_GET,
+        .handler = root_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &root_uri);
+
     httpd_uri_t status_uri = {
         .uri = "/status",
         .method = HTTP_GET,
@@ -73,6 +81,22 @@ esp_err_t not_found_handler(httpd_req_t *req, httpd_err_code_t error) {
     httpd_resp_send(req, text, HTTPD_RESP_USE_STRLEN);
     ESP_LOGW(__FILE__, "%s", text);
     return ESP_FAIL;
+}
+
+esp_err_t root_handler(httpd_req_t *req) {
+    httpd_resp_send(req, "<!DOCTYPE html>"
+                        "<html>"
+                        "<head><title>ESP32 RC Car</title></head>"
+                        "<body>"
+                        "<h1>Welcome to ESP32 RC Car</h1>"
+                        "<p><a href=\"/status\">Status</a></p>"
+                        "<p><a href=\"/control\">Control</a></p>"
+                        "<p><a href=\"/data.json\">Data (JSON)</a></p>"
+                        "<p><a href=\"/restart\">Restart</a></p>"
+                        "<p><a href=\"/calibrate\">Calibrate Servos</a></p>"
+                        "</body>"
+                        "</html>", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
 }
 
 /**

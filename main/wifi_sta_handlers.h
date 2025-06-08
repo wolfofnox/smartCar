@@ -20,6 +20,7 @@ extern l298n_motor_handle_t motor;
 void set_handlers();
 
 esp_err_t not_found_handler(httpd_req_t* req, httpd_err_code_t error);
+esp_err_t root_handler(httpd_req_t* req);
 esp_err_t status_handler(httpd_req_t* req);
 esp_err_t control_handler(httpd_req_t* req);
 esp_err_t restart_handler(httpd_req_t* req);

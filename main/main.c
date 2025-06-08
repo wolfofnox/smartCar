@@ -201,7 +201,7 @@ void app_main(void)
 }
 
 float get_battery_voltage() {
-    int32_t voltage_mv;
+    int voltage_mv;
     adc_oneshot_get_calibrated_result(adc_unit, adc_cali, ADC_CHANNEL_BAT_VOLT, &voltage_mv);
     return voltage_mv / 1000.0 * BATTERY_VOLTAGE_MULTIPLIER;
 }
