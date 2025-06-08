@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP32 Status</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="nav"></div>
+  <div class="card">
+    <h1>ESP32 RC Car Status</h1>
+    <div class="status"></div>
+    <p>Uptime: <span id="uptime">--</span></p>
+    <p>Local IP: <span id="localIP">--</span></p>
+    <p>Speed: <span id="speed">--</span></p>
+    <p>Steering: <span id="steering">--</span></p>
+    <p>Top Servo: <span id="top">--</span></p>
+  </div>
+  <script src="comon.js"></script>
+  <script>
+    async function fetchData() {
+      const response = await fetch('/data.json');
+      if (!response.ok) {
+        status('error', 'Failed to fetch data', 3000);
+        console.error('Error fetching data:', response.status, response.statusText);
+        return;
+      }
+      const data = await response.json();
+      status('none', '');
+      document.getElementById('uptime').textContent = `${Math.floor(data.uptime / 1000 / 60 / 60 / 24)}d ${Math.floor(data.uptime / 1000 / 60 / 60) % 24}h ${Math.floor(data.uptime / 1000 / 60) % 60}m ${Math.floor(data.uptime / 1000) % 60}s`;
+      document.getElementById('localIP').textContent = data.localIP || 'N/A';
+      document.getElementById('speed').textContent = data.speed || 'N/A';
+      document.getElementById('steering').textContent = data.steering || 'N/A';
+      document.getElementById('top').textContent = data.top || 'N/A';
+    }
+    status('info', 'Fetching data...', 10000);
+    setInterval(fetchData, 3000);
+    fetchData();
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RC Car Control</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    #speed {
+      writing-mode: bt-lr;
+      transform: rotate(270deg);
+      width: 60%;
+      margin-top: 30%;
+      margin-bottom: 30%;
+    }
+  </style>
+</head>
+<body>
+  <div id="nav"></div>
+  <div class="card">
+    <h1>RC Car Control</h1>
+    <div class="status"></div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="speed">Speed:</label>
+        <span class="value" id="speedv">0</span>
+        <span class="cbox"></span>
+      </div>
+      <input type="range" id="speed" min="-50" max="50" value="0">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="steering">Steering:</label>
+        <span class="value" id="steeringv">0</span>
+        <span class="cbox"></span>
+      </div>
+      <input type="range" id="steering" min="-45" max="45" value="0">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="top">Top Servo:</label>
+        <span class="value" id="topv">0</span>
+        <span class="cbox"></span>
+      </div>
+      <input type="range" id="top" min="-45" max="45" value="0">
+    </div>
+    <div class="button-group">
+      <button id="estop">Emergency Stop</button>
+    </div>
+  </div>
+  <script src="comon.js"></script>
+  <script src="ws.js"></script>
+  <script>
+    function sendSliderValue(id, value) {
+      const msg = JSON.stringify({ [id]: Number(value * 2) });
+      sendWSMessage(msg);
+      document.getElementById(id + 'v').textContent = value*2;
+    }
+
+    ['speed', 'steering', 'top'].forEach(id => {
+      const slider = document.getElementById(id);
+      slider.addEventListener('input', () => sendSliderValue(id, slider.value));
+    });
+
+    document.getElementById('estop').addEventListener('click', () => {
+      const msg = JSON.stringify({ estop: true });
+      sendWSMessage(msg);
+      ['speed', 'steering', 'top'].forEach(id => {
+        document.getElementById(id).value = 0;
+        document.getElementById(id + 'v').textContent = 0;
+      });
+    });
+  </script>
+</body>
+</html>

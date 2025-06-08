@@ -1,0 +1,128 @@
+body {
+  font-family: Arial, sans-serif;
+  max-width: 600px;
+  margin: 2em auto;
+  padding: 1em;
+  background: #f4f4f4;
+  color: #222;
+}
+nav {
+  margin-bottom: 20px;
+  text-align: center;
+}
+a {
+  margin-right: 10px;
+  text-decoration: none;
+  color: #007BFF;
+}
+a:hover {
+  text-decoration: underline;
+}
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+button {
+  display: inline-block;
+  margin: 0.5em 0.5em;
+  padding: 0.6em 1.5em;
+  background: #7b7b7b;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+button:hover {
+  background: #535353;
+}
+.slider-group {
+  margin: 1.5em 0;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.slider-group input[type="range"] {
+  width: 100%;
+  margin: 0.5em 0;
+}
+.slider-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3em;
+  width: 100%;
+}
+.slider-label-row label {
+  margin-left: 0.5em;
+  text-align: left;
+  min-width: 40%;
+}
+.slider-label-row .value {
+  font-weight: bold;
+  flex: 1;
+  text-align: center;
+}
+.slider-group .cbox {
+  margin-right: 0.5em;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 40%;
+  font-size: .9em;
+}
+.button-group {
+  display: flex;
+  justify-content: center;
+  margin-top: 1em;
+}
+.status {
+  margin: 1em 0;
+  padding: 0 1em;
+  border-radius: 6px;
+  font-weight: bold;
+  display: none; /* hidden by default */
+}
+.status.info {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #90caf9;
+  display: block;
+}
+.status.success {
+  background: #e8f5e9;
+  color: #388e3c;
+  border: 1px solid #a5d6a7;
+  display: block;
+}
+.status.error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  display: block;
+}
+.status.warn {
+  background: #fff3e0;
+  color: #f57c00;
+  border: 1px solid #ffcc80;
+  display: block;
+}
+
+@media (max-width: 700px) {
+  body {
+    max-width: 98vw;
+    padding: 0.5em;
+  }
+  h1, h2 {
+    font-size: 1.3em;
+  }
+  button, a {
+    font-size: 1em;
+    padding: 0.5em 1em;
+  }
+}

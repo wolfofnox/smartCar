@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Servo Calibration</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="nav"></div>
+  <div class="card">
+    <h1>Servo Calibration</h1>
+    <div class="status"></div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="minPWM">Min Pulse Width (us):</label>
+        <span class="value" id="minPWMv">0</span>
+        <span class="cbox">
+          <input type="checkbox" id="minPWMcb">
+          <label for="minPWMcb">Move</label>
+        </span>
+      </div>
+      <input type="range" id="minPWM" min="0" max="3000" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="maxPWM">Max Pulse Width (us):</label>
+        <span class="value" id="maxPWMv">0</span>
+        <span class="cbox">
+          <input type="checkbox" id="maxPWMcb">
+          <label for="maxPWMcb">Move</label>
+        </span>
+      </div>
+      <input type="range" id="maxPWM" min="0" max="3000" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="minAng">Min Angle (deg):</label>
+        <span class="value" id="minAngv">0</span>
+        <span class="cbox">
+          <input type="checkbox" id="minAngcb">
+          <label for="minAngcb">Move</label>
+        </span>
+      </div>
+      <input type="range" id="minAng" min="-360" max="360" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="maxAng">Max Angle (deg):</label>
+        <span class="value" id="maxAngv">0</span>
+        <span class="cbox">
+          <input type="checkbox" id="maxAngcb">
+          <label for="maxAngcb">Move</label>
+        </span>
+      </div>
+      <input type="range" id="maxAng" min="-360" max="360" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="centerAng">Center Position (TBD) (deg):</label>
+        <span class="value" id="centerAngv">0</span>
+        <span class="cbox">
+          <input type="checkbox" id="centerAngcb">
+          <label for="centerAngcb">Move</label>
+        </span>
+      </div>
+      <input type="range" id="centerAng" min="-180" max="180" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="Ang">Angle (testing) (deg):</label>
+        <span class="value" id="Angv">0</span>
+        <span class="cbox">
+          <input type="checkbox" id="Angcb">
+          <label for="Angcb">Move</label>
+        </span>
+      </div>
+      <input type="range" id="Ang" min="-360" max="360" step="1">
+    </div>
+    <div class="button-group">
+      <button onclick="saveCalibration()"> Save </button>
+      <button onclick="fetchCalibration()">Revert</button>
+    </div>
+  </div>
+  <script src="comon.js"></script>
+  <script src="ws.js"></script>
+  <script>
+    let lastSend = Date.now();
+
+    function updateDisplay() {
+      if (Number(Ang.value) > Number(maxAng.value)) Ang.value = maxAng.value;
+      if (Number(Ang.value) < Number(minAng.value)) Ang.value = minAng.value;
+      minPWMv.textContent = minPWM.value;
+      maxPWMv.textContent = maxPWM.value;
+      minAngv.textContent = minAng.value;
+      maxAngv.textContent = maxAng.value;
+      centerAngv.textContent = centerAng.value;
+      Angv.textContent = Ang.value;
+    }
+    function fetchCalibration() {
+      fetch('/data.json').then(r=>r.json()).then(data=>{
+        minPWM.value = data.steeringMinPWM;
+        maxPWM.value = data.steeringMaxPWM;
+        minAng.value = data.steeringMinAngle;
+        maxAng.value = data.steeringMaxAngle;
+        centerAng.value = 0;
+        updateDisplay();
+      });
+    }
+    function sendServo(angle, sendPWM = false) {
+      let msg = {};
+      if (sendPWM) {
+        msg = JSON.stringify({
+          steering: Number(angle),
+          steering_pulsewidth_limits: [Number(minPWM.value), Number(maxPWM.value)]
+        });
+      } else {
+        msg = JSON.stringify({steering: Number(angle)});
+      }
+      sendWSMessage(msg);
+    }
+    function saveCalibration() {
+      const payload = {
+        steering_pulsewith_limits: [ Number(minPWM.value), Number(maxPWM.value)],
+        steering_angle_limits: [ Number(minAng.value), Number(maxAng.value)],
+        steering_center_position: Number(centerAng.value)
+      };
+      fetch('/calibrate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      }).then(r=>r.text()).then(msg=>{
+        status.textContent = msg;
+        setTimeout(()=>status.textContent='', 2000);
+      });
+    }
+    minPWM.addEventListener('input', () => {
+      if (Number(maxPWM.value) < Number(minPWM.value)) maxPWM.value = minPWM.value;
+      updateDisplay();
+      if (minPWMcb.checked && Date.now() - lastSend > 500) {
+        sendServo(minAng.value, true);
+        lastSend = Date.now();
+      }
+    });
+    maxPWM.addEventListener('input', () => {
+      if (Number(minPWM.value) > Number(maxPWM.value)) minPWM.value = maxPWM.value;
+      updateDisplay();
+      if (maxPWMcb.checked && Date.now() - lastSend > 500) {
+        sendServo(maxAng.value, true);
+        lastSend = Date.now();
+      }
+    });
+    minAng.addEventListener('input', () => {
+      if (Number(maxAng.value) < Number(minAng.value)) maxAng.value = minAng.value;
+      updateDisplay();
+      if (minAngcb.checked && Date.now() - lastSend > 500) {
+        sendServo(minAng.value);
+        lastSend = Date.now();
+      }
+    });
+    maxAng.addEventListener('input', () => {
+      if (Number(minAng.value) > Number(maxAng.value)) minAng.value = maxAng.value;
+      updateDisplay();
+      if (maxAngcb.checked && Date.now() - lastSend > 500) {
+        sendServo(maxAng.value);
+        lastSend = Date.now();
+      }
+    });
+    centerAng.addEventListener('input', () => {
+      updateDisplay();
+      if (centerAngcb.checked && Date.now() - lastSend > 500) {
+        sendServo(centerAng.value);
+        lastSend = Date.now();
+      }
+    });
+    Ang.addEventListener('input', () => {
+      updateDisplay();
+      if (Angcb.checked && Date.now() - lastSend > 500) {
+        sendServo(Ang.value);
+        lastSend = Date.now();
+      }
+    });
+    fetchCalibration();
+    updateDisplay();
+  </script>
+</body>
+</html>
