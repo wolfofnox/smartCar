@@ -17,6 +17,13 @@ extern servo_handle_t steeringServo;
 extern servo_handle_t topServo;
 extern l298n_motor_handle_t motor;
 
+extern servo_config_t steeringCfg; ///< Steering servo configuration
+extern servo_config_t topCfg; ///< Top servo configuration
+extern l298n_motor_config_t motorCfg; ///< Motor configuration
+extern battery_type_t batteryType; ///< Battery type
+
+extern void save_nvs_calibration(); ///< Save configuration to NVS
+
 void set_handlers();
 
 esp_err_t not_found_handler(httpd_req_t* req, httpd_err_code_t error);

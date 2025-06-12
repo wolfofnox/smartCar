@@ -1,6 +1,16 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+// --- Class, Enum and Struct definitions ---
+#pragma region ClassEnumStructs
+
+typedef enum {
+    BATTERY_WALL_ADAPTER, ///< Wall adapter power supply
+    BATTERY_6xNiMH        ///< 6x NiMH rechargeable batteries
+} battery_type_t;
+
+#pragma endregion
+
 // --- Includes ---
 // Standard and ESP-IDF includes for core functionality
 #pragma region Includes
@@ -51,12 +61,6 @@
 #define LOG_LEVEL_GLOBAL ESP_LOG_INFO   ///< Set the global log level for esp-idf components
 #define LOG_LEVEL_SOURCE ESP_LOG_DEBUG   ///< Set the log level for this source file
 
-// Please consult the datasheet of your servo before changing the following parameters
-#define SERVO_MIN_PULSEWIDTH_US 500  // Minimum pulse width in microsecond
-#define SERVO_MAX_PULSEWIDTH_US 2500  // Maximum pulse width in microsecond
-#define SERVO_MIN_DEGREE        -90   // Minimum angle
-#define SERVO_MAX_DEGREE        90    // Maximum angle
-
 #define SERVO_PULSE_GPIO             0        // GPIO connects to the PWM signal line
 #define SERVO_TIMEBASE_RESOLUTION_HZ 1000000  // 1MHz, 1us per tick
 #define SERVO_TIMEBASE_PERIOD        20000    // 20000 ticks, 20ms
@@ -65,12 +69,7 @@
 #define BATTERY_VOLTAGE_DEV_R2 39400.0 // 40k
 #define BATTERY_VOLTAGE_MULTIPLIER ((BATTERY_VOLTAGE_DEV_R1 + BATTERY_VOLTAGE_DEV_R2) / BATTERY_VOLTAGE_DEV_R1) // ~5.0
 
-#define BATTERY_WALL_ADAPTER 0
-#define BATTERY_6xNiMH 1 // 6 NiMH rechargeable 1.2V batteries (1V - 1.5V per cell, 6V - 9.0V total)
-
-#define BATTERY_TYPE BATTERY_6xNiMH // from one of the above 
-
-#define USE_NVS            0  ///< Use NVS (Non-Volatile Storage) for settings (1/0 = yes/no)
+#define USE_NVS            1  ///< Use NVS (Non-Volatile Storage) for settings (1/0 = yes/no)
 #if USE_NVS == 1
     #include "nvs_flash.h"
     #include "nvs.h"
@@ -90,12 +89,6 @@
 
     #define MAX_STA_FAILS  5          ///< Max number of failed attempts to connect to the AP before switching to AP captive mode
 #endif
-#pragma endregion
-
-// --- Class, Enum and Struct definitions ---
-// (Reserved for future class, enum, or struct definitions)
-#pragma region ClassEnumStructs
-
 #pragma endregion
 
 #endif

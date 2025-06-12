@@ -30,6 +30,36 @@ servo_handle_t steeringServo = NULL; ///< Handle for the steering servo
 servo_handle_t topServo = NULL; ///< Handle for the throttle servo
 l298n_motor_handle_t motor = NULL;
 
+// nvs setting variables
+servo_config_t steeringCfg = {
+    .gpio_num = PIN_STEER_SERVO,
+    .min_pulsewidth_us = 1270,
+    .max_pulsewidth_us = 2080,
+    .min_degree = -90,
+    .max_degree = 90,
+    .period_ticks = 20000,
+    .resolution_hz = 1000000,
+};
+servo_config_t topCfg = {
+    .gpio_num = PIN_TOP_SERVO,
+    .min_pulsewidth_us = 500,
+    .max_pulsewidth_us = 2400,
+    .min_degree = -90,
+    .max_degree = 90,
+    .period_ticks = 20000,
+    .resolution_hz = 1000000,
+};
+l298n_motor_config_t motorCfg = {
+    .en_pin = PIN_MOT_EN,
+    .in1_pin = PIN_MOT_1,
+    .in2_pin = PIN_MOT_2,
+    .ledc_channel = LEDC_CHANNEL_0,
+    .ledc_mode = LEDC_LOW_SPEED_MODE,
+    .ledc_timer = LEDC_TIMER_0,
+    .pwm_freq_hz = 5000
+};
+battery_type_t batteryType = BATTERY_6xNiMH; ///< Type of battery used in the car
+
 #pragma endregion
 
 // --- Define functions ---
@@ -39,6 +69,10 @@ float get_battery_voltage();
 void check_battery();
 void deep_sleep();
 void check_battery_task(void *pvParameter);
+void load_nvs_calibration();
+void save_nvs_calibration();
+void load_nvs_settings();
+void save_nvs_settings();
 
 #pragma endregion
 
@@ -99,51 +133,6 @@ void app_main(void)
     ssd1306_clear_screen(&display, false);
     ssd1306_contrast(&display, 0xff);
 
-    // Servo config
-    gpio_config_t motor_config = {
-        .pin_bit_mask = (1ULL << PIN_MOT_1) | (1ULL << PIN_MOT_2),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-    ESP_ERROR_CHECK(gpio_config(&motor_config));
-    ESP_ERROR_CHECK(gpio_set_level(PIN_MOT_1, 0));
-    ESP_ERROR_CHECK(gpio_set_level(PIN_MOT_2, 0));
-
-    servo_config_t steeringCfg = {
-        .gpio_num = PIN_STEER_SERVO,
-        .min_pulsewidth_us = 1200,
-        .max_pulsewidth_us = 1700,
-        .min_degree = -90,
-        .max_degree = 90,
-        .period_ticks = 20000,
-        .resolution_hz = 1000000,
-    };
-    steeringServo = servo_init(&steeringCfg);
-    servo_config_t topCfg = {
-        .gpio_num = PIN_TOP_SERVO,
-        .min_pulsewidth_us = 500,
-        .max_pulsewidth_us = 2400,
-        .min_degree = -90,
-        .max_degree = 90,
-        .period_ticks = 20000,
-        .resolution_hz = 1000000,
-    };
-    topServo = servo_init(&topCfg);
-
-    // DC motor config
-    l298n_motor_config_t motorCfg = {
-        .en_pin = PIN_MOT_EN,
-        .in1_pin = PIN_MOT_1,
-        .in2_pin = PIN_MOT_2,
-        .ledc_channel = LEDC_CHANNEL_0,
-        .ledc_mode = LEDC_LOW_SPEED_MODE,
-        .ledc_timer = LEDC_TIMER_0,
-        .pwm_freq_hz = 5000
-    };
-    motor = l298n_motor_init(&motorCfg);
-
     // init ADC
     adc_oneshot_unit_init_cfg_t adc_unit_cfg = {
         .unit_id = ADC_UNIT_BAT_VOLT,
@@ -177,6 +166,15 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
     #endif
+
+    load_nvs_calibration(); // Load NVS configuration
+    
+    // Servo config
+    steeringServo = servo_init(&steeringCfg);
+    topServo = servo_init(&topCfg);
+
+    // DC motor config
+    motor = l298n_motor_init(&motorCfg);
 
     #if USE_WiFi == 1 // Initialize WiFi
     wifi_init();
@@ -215,25 +213,30 @@ void check_battery() {
     ssd1306_clear_line(&display, 3, false);
     ssd1306_display_text(&display, 1, "Voltage:", 8, false);
     ssd1306_display_text(&display, 2, buff, strlen(buff), false);
-    #if BATTERY_TYPE == BATTERY_WALL_ADAPTER
-
-    #elif BATTERY_TYPE == BATTERY_6xNiMH
-        if (voltage < 1) {
-            voltage = 0;
-            ssd1306_display_text(&display, 3, "Connect battery", 15, false);
-            return;
-        }
-        if (voltage < 6.0) {
-            ESP_LOGE(TAG, "Battery voltage critical: %fV", voltage);
-            ESP_LOGW(TAG, "Please charge the batteries!");
-            ESP_LOGW(TAG, "Shutting down...");
-            deep_sleep();
-            return;
-        }
-        if (voltage < 7.0) {
-            ssd1306_display_text(&display, 3, "Battery low!", 13, true);
-        }
-    #endif
+    switch (batteryType) {
+        case BATTERY_WALL_ADAPTER:
+            ssd1306_display_text(&display, 5, "Wall adapter", 12, false);
+            break;
+        case BATTERY_6xNiMH:
+            ssd1306_display_text(&display, 5, "6x NiMH battery", 15, false);
+            if (voltage < 1) {
+                voltage = 0;
+                ssd1306_display_text(&display, 3, "Connect battery", 15, false);
+                return;
+            }
+            if (voltage < 6.0) {
+                ESP_LOGE(TAG, "Battery voltage critical: %fV", voltage);
+                ESP_LOGW(TAG, "Please charge the batteries!");
+                ESP_LOGW(TAG, "Shutting down...");
+                deep_sleep();
+                return;
+            }
+            if (voltage < 7.0) {
+                ssd1306_display_text(&display, 3, "Battery low!", 13, true);
+            }
+        default:
+            break;
+    }
 }
 
 void deep_sleep() {
@@ -249,5 +252,66 @@ void check_battery_task(void *pvParameter) {
     while (1) {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
         check_battery();
+    }
+}
+
+/**
+ * @brief Load configuration from NVS (Non-Volatile Storage).
+ * 
+ * Loads servo and motor configuration to the global variables.
+ * If NVS is not initialized or keys are not found, default values are used.
+ */
+void load_nvs_calibration() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE_APP, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        size_t len = sizeof(steeringCfg);
+        nvs_get_blob(nvs_handle, "steering_cfg", &steeringCfg, &len);
+        len = sizeof(topCfg);
+        nvs_get_blob(nvs_handle, "top_cfg", &topCfg, &len);
+        len = sizeof(motorCfg);
+        nvs_get_blob(nvs_handle, "motor_cfg", &motorCfg, &len);
+        nvs_close(nvs_handle);
+    } else {
+        ESP_LOGE(__FILE__, "Failed to open NVS for saving config: %s", esp_err_to_name(err));
+    }
+}
+
+void save_nvs_calibration() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE_APP, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        nvs_set_blob(nvs_handle, "steering_cfg", &steeringCfg, sizeof(steeringCfg));
+        nvs_set_blob(nvs_handle, "top_cfg", &topCfg, sizeof(topCfg));
+        nvs_set_blob(nvs_handle, "motor_cfg", &motorCfg, sizeof(motorCfg));
+        nvs_commit(nvs_handle);
+        nvs_close(nvs_handle);
+        ESP_LOGI(__FILE__, "NVS calibration saved successfully");
+    } else {
+        ESP_LOGE(__FILE__, "Failed to open NVS for saving config: %s", esp_err_to_name(err));
+    }
+}
+
+void load_nvs_settings() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE_APP, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        nvs_get_u8(nvs_handle, "battery_type", (uint8_t *)&batteryType);
+        nvs_close(nvs_handle);
+    } else {
+        ESP_LOGE(__FILE__, "Failed to open NVS for loading settings: %s", esp_err_to_name(err));
+    }
+}
+
+void save_nvs_settings() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE_APP, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        nvs_set_u8(nvs_handle, "battery_type", (uint8_t)batteryType);
+        nvs_commit(nvs_handle);
+        nvs_close(nvs_handle);
+        ESP_LOGI(__FILE__, "NVS settings saved successfully");
+    } else {
+        ESP_LOGE(__FILE__, "Failed to open NVS for saving settings: %s", esp_err_to_name(err));
     }
 }
