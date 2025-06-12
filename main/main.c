@@ -48,7 +48,7 @@ void app_main(void)
     // Set log level
     esp_log_level_set("*", LOG_LEVEL_GLOBAL);
     esp_log_level_set(__FILE__, LOG_LEVEL_SOURCE);
-    esp_log_level_set("Web socket", ESP_LOG_DEBUG);
+    esp_log_level_set("Web socket", LOG_LEVEL_SOURCE);
     ESP_LOGI(__FILE__, "START %s from %s", __FILE__, __DATE__);
     ESP_LOGI(__FILE__, "Setting up...");
     

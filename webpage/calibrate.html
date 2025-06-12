@@ -80,13 +80,20 @@
     </div>
     <div class="button-group">
       <button onclick="saveCalibration()"> Save </button>
-      <button onclick="fetchCalibration()">Revert</button>
+      <button onclick="sendWSMessage(JSON.stringify({event: 'revert'})); fetchCalibration();"">Revert</button>
     </div>
   </div>
   <script src="comon.js"></script>
   <script src="ws.js"></script>
   <script>
     let lastSend = Date.now();
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.event === 'ws_timeout') {
+        fetchCalibration();
+        status('warn', 'WebSocket timeout, calibration reverted', 3000);
+      }
+    }
 
     function updateDisplay() {
       if (Number(Ang.value) > Number(maxAng.value)) Ang.value = maxAng.value;
@@ -181,8 +188,16 @@
         lastSend = Date.now();
       }
     });
+    function sendWSNewTimeout(timeout) {
+      if (ws.readyState === WebSocket.OPEN) {
+        setTimeout(() => sendWSMessage(JSON.stringify({timeout: timeout})), 100);
+      } else {
+        setTimeout(() => sendWSNewTimeout(timeout), 100);
+      }
+    }
     fetchCalibration();
     updateDisplay();
+    setTimeout(() => sendWSNewTimeout(20000), 100);
   </script>
 </body>
 </html>
