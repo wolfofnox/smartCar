@@ -20,11 +20,22 @@ extern l298n_motor_handle_t motor;
 void set_handlers();
 
 esp_err_t not_found_handler(httpd_req_t* req, httpd_err_code_t error);
+
 esp_err_t root_handler(httpd_req_t* req);
+
+esp_err_t styles_css_handler(httpd_req_t* req);
+esp_err_t comon_js_handler(httpd_req_t* req);
+esp_err_t ws_js_handler(httpd_req_t* req);
+esp_err_t nav_handler(httpd_req_t* req);
+
 esp_err_t status_handler(httpd_req_t* req);
 esp_err_t control_handler(httpd_req_t* req);
 esp_err_t restart_handler(httpd_req_t* req);
+esp_err_t calibrate_handler(httpd_req_t *req);
+esp_err_t calibrate_post_handler(httpd_req_t *req);
+
 esp_err_t data_json_handler(httpd_req_t* req);
+
 esp_err_t websocket_handler(httpd_req_t *req);
 void ws_watchdog_callback(TimerHandle_t xTimer);
 void ws_watchdog_start();

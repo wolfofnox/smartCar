@@ -1,5 +1,27 @@
 #include "wifi_sta_handlers.h"
 
+extern const char index_html_start[] asm("_binary_index_html_start");
+extern const char index_html_end[] asm("_binary_index_html_end");
+extern const char nav_html_start[] asm("_binary_nav_html_start");
+extern const char nav_html_end[] asm("_binary_nav_html_end");
+extern const char styles_css_start[] asm("_binary_styles_css_start");
+extern const char styles_css_end[] asm("_binary_styles_css_end");
+extern const char comon_js_start[] asm("_binary_comon_js_start");
+extern const char comon_js_end[] asm("_binary_comon_js_end");
+extern const char ws_js_start[] asm("_binary_ws_js_start");
+extern const char ws_js_end[] asm("_binary_ws_js_end");
+extern const char status_html_start[] asm("_binary_status_html_start");
+extern const char status_html_end[] asm("_binary_status_html_end");
+extern const char control_html_start[] asm("_binary_control_html_start");
+extern const char control_html_end[] asm("_binary_control_html_end");
+extern const char calibrate_html_start[] asm("_binary_calibrate_html_start");
+extern const char calibrate_html_end[] asm("_binary_calibrate_html_end");
+
+static TimerHandle_t ws_watchdog_timer = NULL; ///< WebSocket timeout watchdog timer handle
+
+static uint32_t ws_watchdog_timeout = 5000; ///< WebSocket timeout in milliseconds
+static int ws_socket_fd = -1; ///< WebSocket socket file descriptor
+
 /**
  * @brief Register HTTP URI handlers for the web server in station mode.
  * 
@@ -58,6 +80,54 @@ void set_handlers() {
     };
     httpd_register_uri_handler(server, &ws_uri);
 
+    httpd_uri_t calibrate_get_uri = {
+        .uri = "/calibrate",
+        .method = HTTP_GET,
+        .handler = calibrate_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &calibrate_get_uri);
+
+    httpd_uri_t calibrate_post_uri = {
+        .uri = "/calibrate",
+        .method = HTTP_POST,
+        .handler = calibrate_post_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &calibrate_post_uri);
+
+    httpd_uri_t styles_css_uri = {
+        .uri = "/styles.css",
+        .method = HTTP_GET,
+        .handler = styles_css_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &styles_css_uri);
+
+    httpd_uri_t comon_js_uri = {
+        .uri = "/comon.js",
+        .method = HTTP_GET,
+        .handler = comon_js_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &comon_js_uri);
+
+    httpd_uri_t ws_js_uri = {
+        .uri = "/ws.js",
+        .method = HTTP_GET,
+        .handler = ws_js_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &ws_js_uri);
+
+    httpd_uri_t nav_uri = {
+        .uri = "/nav.html",
+        .method = HTTP_GET,
+        .handler = nav_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &nav_uri);
+
     httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, not_found_handler);
 }
 
@@ -85,52 +155,18 @@ esp_err_t not_found_handler(httpd_req_t *req, httpd_err_code_t error) {
 }
 
 esp_err_t root_handler(httpd_req_t *req) {
-    httpd_resp_send(req, "<!DOCTYPE html>"
-                        "<html>"
-                        "<head><title>ESP32 RC Car</title></head>"
-                        "<body>"
-                        "<h1>Welcome to ESP32 RC Car</h1>"
-                        "<p><a href=\"/status\">Status</a></p>"
-                        "<p><a href=\"/control\">Control</a></p>"
-                        "<p><a href=\"/data.json\">Data (JSON)</a></p>"
-                        "<p><a href=\"/restart\">Restart</a></p>"
-                        "<p><a href=\"/calibrate\">Calibrate Servos</a></p>"
-                        "</body>"
-                        "</html>", HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+    size_t len = index_html_end - index_html_start;
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    return httpd_resp_send(req, (const char *)index_html_start, len);
 }
 
 /**
  * @brief HTTP handler for /status endpoint (returns HTML status page).
  */
 esp_err_t status_handler(httpd_req_t *req) {
-    char html[256];
-    char ip_str[IP4ADDR_STRLEN_MAX];
-    esp_netif_ip_info_t ip_info;
-    if (sta_netif && esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK) {
-        esp_ip4addr_ntoa(&ip_info.ip, ip_str, IP4ADDR_STRLEN_MAX);
-    } else {
-        strcpy(ip_str, "N/A");
-    }
-    uint32_t time_s = (esp_timer_get_time() - bootTime) / 1000000;
-    uint32_t time_m = time_s / 60;
-    time_s %= 60;
-    uint16_t time_h = time_m / 60;
-    time_m %= 60;
-    uint8_t time_d = time_h / 24;
-    time_h %= 24;
-    snprintf(html, sizeof(html), "<!DOCTYPE html>"
-                                  "<html>"
-                                  "<head><title>ESP32 Status</title></head>"
-                                  "<body>"
-                                  "<h1>ESP32 Status</h1>"
-                                  "<p>Uptime: %hud, %uh, %lum, %lus</p>"
-                                  "<p>Local IP: %s</p>"
-                                  "</body>"
-                                  "</html>",
-             time_d, time_h, time_m, time_s, ip_str);
-    httpd_resp_send(req, html, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+    size_t len = status_html_end - status_html_start;
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    return httpd_resp_send(req, (const char *)status_html_start, len);
 }
 
 /**
@@ -169,70 +205,60 @@ esp_err_t data_json_handler(httpd_req_t *req) {
 }
 
 esp_err_t control_handler(httpd_req_t* req) {
-    char html[2048]; // Adjust size as needed
-    char ip_str[IP4ADDR_STRLEN_MAX];
-    esp_netif_ip_info_t ip_info;
-    if (sta_netif && esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK) {
-        esp_ip4addr_ntoa(&ip_info.ip, ip_str, IP4ADDR_STRLEN_MAX);
-    } else {
-        strcpy(ip_str, "N/A");
-    }
-    snprintf(html, sizeof(html),
-    "<!DOCTYPE html>"
-    "<html>"
-    "<head>"
-      "<title>RC Car Control</title>"
-      "<style>"
-        "body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }"
-        "h1 { color: #333; }"
-        "label { display: block; margin: 10px 0 5px; }"
-        "input[type='range'] { margin: 10px 0; }"
-        "#speed { writing-mode: bt-lr; transform: rotate(270deg); width: 150px; margin: 80px 0; }"
-        "button { padding: 10px 20px; background-color: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer; }"
-        "button:hover { background-color: #d32f2f; }"
-      "</style>"
-    "</head>"
-    "<body>"
-      "<h1>RC Car Control</h1>"
-      "<label for='speed'>Speed:</label>"
-      "<input type='range' id='speed' min='-20' max='20' value='%d' /><br>"
-      "<label for='steering'>Steering:</label>"
-      "<input type='range' id='steering' min='-18' max='18' value='%d' /><br>"
-      "<label for='top'>Top Servo:</label>"
-      "<input type='range' id='top' min='-18' max='18' value='%d' /><br>"
-      "<button id='estop'>Emergency Stop</button>"
-      "<script>"
-        "const ws = new WebSocket(`ws://%s/ws`);"
-        "ws.onopen = () => console.log('WebSocket connected');"
-        "ws.onmessage = (event) => console.log('Message received:', event.data);"
-        "ws.onerror = (error) => console.error('WebSocket error:', error);"
-        "ws.onclose = () => console.log('WebSocket closed');"
-        "function sendSliderValue(id) {"
-          "const slider = document.getElementById(id);"
-          "slider.addEventListener('input', () => {"
-            "const msg = JSON.stringify({ [id]: Number(slider.value*5) });"
-            "ws.send(msg);"
-            "console.log('Message sent:', msg);"
-          "});"
-        "}"
-        "document.getElementById('estop').addEventListener('click', () => {"
-          "const msg = JSON.stringify({ estop: true });"
-          "ws.send(msg);"
-          "console.log('Message sent:', msg);"
-          "document.getElementById('speed').value = 0;"
-          "document.getElementById('steering').value = 0;"
-          "document.getElementById('top').value = 0;"
-        "});"
-        "sendSliderValue('speed');"
-        "sendSliderValue('steering');"
-        "sendSliderValue('top');"
-      "</script>"
-    "</body>"
-    "</html>",
-    l298n_motor_get_speed(motor)/5, servo_get_angle(steeringServo)/5, servo_get_angle(topServo)/5, ip_str);
-    return httpd_resp_send(req, html, strlen(html));
+    size_t len = control_html_end - control_html_start;
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    return httpd_resp_send(req, (const char *)control_html_start, len);
 }
 
+esp_err_t calibrate_handler(httpd_req_t *req) {
+    size_t len = calibrate_html_end - calibrate_html_start;
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    return httpd_resp_send(req, (const char *)calibrate_html_start, len);
+}
+
+esp_err_t calibrate_post_handler(httpd_req_t *req) {
+    char buf[256];
+    int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (len <= 0) {
+        return ESP_FAIL; // Error or no data received
+    }
+    buf[len] = '\0'; // Null-terminate the string
+
+    // Parse the POST data
+    char param[32];
+    if (httpd_query_key_value(buf, "steering_pulsewidth_limits", param, sizeof(param)) == ESP_OK) {
+        int min_pwm = 0, max_pwm = 0;
+        if(sscanf(param + 1, "%d,%d", &min_pwm, &max_pwm) == 2) {
+            steeringCfg.min_pulsewidth_us = min_pwm;
+            steeringCfg.max_pulsewidth_us = max_pwm;
+            servo_set_nim_max_pulsewidth(steeringServo, min_pwm, max_pwm);
+        }
+    }
+    if (httpd_query_key_value(buf, "steering_angle_limits", param, sizeof(param)) == ESP_OK) {
+        int min_angle = 0, max_angle = 0;
+        if (sscanf(param + 1, "%d,%d", &min_angle, &max_angle) == 2) {
+            steeringCfg.min_degree = min_angle;
+            steeringCfg.max_degree = max_angle;
+            servo_set_nim_max_degree(steeringServo, min_angle, max_angle);
+        }
+    }
+    if (httpd_query_key_value(buf, "steering_center_position", param, sizeof(param)) == ESP_OK) {
+        // not yet implemented
+    }
+
+    ESP_LOGI(__FILE__, "Calibration POST data received: %s", buf);
+    ESP_LOGI(__FILE__, "Steering pulsewidth limits: %lu - %lu", steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us);
+    ESP_LOGI(__FILE__, "Steering angle limits: %d - %d", steeringCfg.min_degree, steeringCfg.max_degree);
+    
+
+    save_nvs_calibration(); // Save the updated configuration to NVS
+
+    httpd_resp_set_status(req, "302 Temporary Redirect");
+    httpd_resp_set_hdr(req, "Location", "/calibrate");  
+    httpd_resp_send(req, "Calibration successful", HTTPD_RESP_USE_STRLEN);
+    ESP_LOGV(__FILE__, "Redirecting to calibration page after POST");
+    return ESP_OK;
+}
 
 esp_err_t websocket_handler(httpd_req_t *req) {
     if (req->method == HTTP_GET) {
