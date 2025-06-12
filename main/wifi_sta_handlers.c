@@ -150,7 +150,7 @@ esp_err_t restart_handler(httpd_req_t *req) {
  * @brief HTTP handler for returning JSON data about the ESP32 status.
  */
 esp_err_t data_json_handler(httpd_req_t *req) {
-    char json[128];
+    char json[300];
     char ip_str[IP4ADDR_STRLEN_MAX];
     esp_netif_ip_info_t ip_info;
     if (sta_netif && esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK) {
@@ -158,12 +158,14 @@ esp_err_t data_json_handler(httpd_req_t *req) {
     } else {
         strcpy(ip_str, "N/A");
     }
-    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"localIP\": \"%s\"}",  
-             (esp_timer_get_time() - bootTime) / 1000, ip_str);
+    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"localIP\": \"%s\", \"speed\": %d, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d}",  
+             (esp_timer_get_time() - bootTime) / 1000, ip_str,
+            servo_get_angle(steeringServo), servo_get_angle(topServo), l298n_motor_get_speed(motor),
+            steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us, steeringCfg.min_degree, steeringCfg.max_degree,
+            topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us, topCfg.min_degree, topCfg.max_degree);
     ESP_LOGD(__FILE__, "JSON data requested: %s", json);
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, json, strlen(json));
-    return ESP_OK;
+    return httpd_resp_send(req, json, strlen(json));
 }
 
 esp_err_t control_handler(httpd_req_t* req) {
