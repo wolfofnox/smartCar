@@ -66,7 +66,7 @@
 
     document.getElementById('estop').addEventListener('click', () => {
       const msg = JSON.stringify({ event: 'estop' });
-      status('warn', 'Emergency stop activated', 1000);
+      message('warn', 'Emergency stop activated', 1000);
       sendWSMessage(msg);
       ['speed', 'steering', 'top'].forEach(id => {
         document.getElementById(id).value = 0;
