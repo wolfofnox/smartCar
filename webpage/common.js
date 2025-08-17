@@ -91,7 +91,7 @@ function updateFooter() {
         let html = `
         <span style="${wifiColor}">WiFi: ${wifiStatus}</span>
         <span>IP: ${json.wifi.ip || 'N/A'}</span>
-        <span>Heap: ${json.status.totalHeap - json.status.freeHeap || 'N/A'}/${json.status.totalHeap || 'N/A'} bytes</span>
+        <span>Heap: ${Math.floor((json.status.totalHeap - json.status.freeHeap)/1000) || 'N/A'}/${Math.floor((json.status.totalHeap/1000) || 'N/A')} KB</span>
         <span>Uptime: ${msToTime(json.status.uptime) || 'N/A'}</span>
         <span>FW: ${json.status.version || 'N/A'}</span>
         <span style="font-size:0.9em;">Last update: ${new Date().toLocaleTimeString()}</span>
