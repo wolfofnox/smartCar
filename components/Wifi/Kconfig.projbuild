@@ -1,0 +1,51 @@
+menu "WiFi Component Configuration"
+
+choice
+    prompt "WiFi component log level"
+    default LOG_LEVEL_WIFI_INFO
+    help
+        Select the log level for the WiFi component.
+
+    config LOG_LEVEL_WIFI_NONE
+        bool "None"
+    config LOG_LEVEL_WIFI_ERROR
+        bool "Error"
+    config LOG_LEVEL_WIFI_WARN
+        bool "Warn"
+    config LOG_LEVEL_WIFI_INFO
+        bool "Info"
+    config LOG_LEVEL_WIFI_DEBUG
+        bool "Debug"
+    config LOG_LEVEL_WIFI_VERBOSE
+        bool "Verbose"
+endchoice
+
+config LOG_LEVEL_WIFI
+    int
+    default 0 if LOG_LEVEL_WIFI_NONE
+    default 1 if LOG_LEVEL_WIFI_ERROR
+    default 2 if LOG_LEVEL_WIFI_WARN
+    default 3 if LOG_LEVEL_WIFI_INFO
+    default 4 if LOG_LEVEL_WIFI_DEBUG
+    default 5 if LOG_LEVEL_WIFI_VERBOSE
+    help
+        Internal value for WiFi log level (used in code).
+
+config WIFI_MAX_RECONNECTS
+    int "Maximum reconnect attempts before switching to AP captive portal mode"
+    default 5
+    help
+        Maximum reconnect attempts in standard operation mode before switching to AP mode and launching captive portal.
+
+config PIN_WIFI_SD_CS
+    int "SD card CS pin"
+    default 10
+    help
+        GPIO pin number for the SD card chip select (CS) line.
+
+config WIFI_FORMAT_SD_ON_FAIL
+    bool "Format SD card if mount fails"
+    default n
+    help
+        If enabled, the SD card will be formatted if mounting fails. This is useful for development but should be used with caution in production.
+endmenu

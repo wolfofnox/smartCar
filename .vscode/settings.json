@@ -1,32 +1,23 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
-  "idf.espIdfPathWin": "D:\\Coding\\Arduino\\esp\\v5.3.3\\esp-idf",
-  "idf.toolsPathWin": "D:\\Coding\\Arduino\\.espressif",
-  "idf.pythonInstallPath": "D:\\Coding\\Arduino\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
+    "idf.espIdfPathWin": "C:\\Users\\vikto\\esp\\v5.5-rc1\\esp-idf",
+  "idf.toolsPathWin": "C:\\Users\\vikto\\.espressif",
+  "idf.pythonInstallPath": "C:\\Users\\vikto\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
   "idf.openOcdConfigs": [
     "board/esp32s3-builtin.cfg"
   ],
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32s3"
   },
-  "idf.portWin": "COM9",
   "idf.flashType": "UART",
+  "idf.portWin": "COM5",
   "files.associations": {
+    "inet.h": "c",
+    "nvs_flash.h": "c",
     "sdkconfig.h": "c",
-    "stdio.h": "c",
-    "esp_system.h": "c",
-    "freertos.h": "c",
-    "esp_http_server.h": "c",
+    "esp_log.h": "c",
     "wifi.h": "c",
-    "cstdint": "c",
-    "format": "c",
-    "cstring": "c",
-    "typeinfo": "c",
-    "led_states.h": "c",
-    "esp_timer.h": "c",
-    "task.h": "c",
-    "esp_adc_cal.h": "c",
-    "adc_cali_scheme.h": "c"
-  },
-  "C_Cpp.dimInactiveRegions": true
+    "l298n_motor.h": "c",
+    "esp_err.h": "c"
+  }
 }

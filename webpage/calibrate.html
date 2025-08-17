@@ -83,7 +83,8 @@
       <button onclick="sendWSMessage(JSON.stringify({event: 'revert'})); fetchCalibration();"">Revert</button>
     </div>
   </div>
-  <script src="comon.js"></script>
+  <footer id="footer"></footer>
+  <script src="common.js"></script>
   <script src="ws.js"></script>
   <script>
     let lastSend = Date.now();
@@ -106,7 +107,7 @@
       Angv.textContent = Ang.value;
     }
     function fetchCalibration() {
-      fetch('/data.json').then(r=>r.json()).then(data=>{
+      fetch('/status.json').then(r=>r.json()).then(data=>{
         minPWM.value = data.steeringMinPWM;
         maxPWM.value = data.steeringMaxPWM;
         minAng.value = data.steeringMinAngle;

@@ -5,6 +5,7 @@ body {
   padding: 1em;
   background: #f4f4f4;
   color: #222;
+  padding-bottom: 40px; /* Prevent content from being hidden behind footer */
 }
 nav {
   margin-bottom: 20px;
@@ -112,7 +113,6 @@ button:hover {
   border: 1px solid #ffcc80;
   display: block;
 }
-
 @media (max-width: 700px) {
   body {
     max-width: 98vw;
@@ -121,8 +121,20 @@ button:hover {
   h1, h2 {
     font-size: 1.3em;
   }
-  button, a {
+button, a {
     font-size: 1em;
     padding: 0.5em 1em;
   }
+}
+footer#footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background: #222;
+  color: #fff;
+  text-align: center;
+  padding: 8px 0;
+  font-size: 0.95em;
+  z-index: 100;
 }

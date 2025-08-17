@@ -16,10 +16,11 @@
     <p>Steering: <span id="steering">--</span></p>
     <p>Top Servo: <span id="top">--</span></p>
   </div>
-  <script src="comon.js"></script>
+  <footer id="footer"></footer>
+  <script src="common.js"></script>
   <script>
     async function fetchData() {
-      const response = await fetch('/data.json');
+      const response = await fetch('/status.json');
       if (!response.ok) {
         status('error', 'Failed to fetch data', 3000);
         console.error('Error fetching data:', response.status, response.statusText);

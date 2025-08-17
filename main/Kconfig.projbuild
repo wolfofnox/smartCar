@@ -1,0 +1,142 @@
+menu "Project Configuration"
+
+    menu "Logging Configuration"
+
+    choice
+        prompt "Log level for source files"
+        default LOG_LEVEL_SOURCE_INFO
+        help
+            Set the log level for source files.
+
+        config LOG_LEVEL_SOURCE_NONE
+            bool "None"
+        config LOG_LEVEL_SOURCE_ERROR
+            bool "Error"
+        config LOG_LEVEL_SOURCE_WARN
+            bool "Warn"
+        config LOG_LEVEL_SOURCE_INFO
+            bool "Info"
+        config LOG_LEVEL_SOURCE_DEBUG
+            bool "Debug"
+        config LOG_LEVEL_SOURCE_VERBOSE
+            bool "Verbose"
+    endchoice
+
+    config LOG_LEVEL_SOURCE
+        int
+        default 0 if LOG_LEVEL_SOURCE_NONE
+        default 1 if LOG_LEVEL_SOURCE_ERROR
+        default 2 if LOG_LEVEL_SOURCE_WARN
+        default 3 if LOG_LEVEL_SOURCE_INFO
+        default 4 if LOG_LEVEL_SOURCE_DEBUG
+        default 5 if LOG_LEVEL_SOURCE_VERBOSE
+        help
+            Internal value for source file log level.
+
+    choice
+        prompt "Global log level"
+        default LOG_LEVEL_GLOBAL_INFO
+        help
+            Set the global log level for the project.
+
+        config LOG_LEVEL_GLOBAL_NONE
+            bool "None"
+        config LOG_LEVEL_GLOBAL_ERROR
+            bool "Error"
+        config LOG_LEVEL_GLOBAL_WARN
+            bool "Warn"
+        config LOG_LEVEL_GLOBAL_INFO
+            bool "Info"
+        config LOG_LEVEL_GLOBAL_DEBUG
+            bool "Debug"
+        config LOG_LEVEL_GLOBAL_VERBOSE
+            bool "Verbose"
+    endchoice
+
+    config LOG_LEVEL_GLOBAL
+        int
+        default 0 if LOG_LEVEL_GLOBAL_NONE
+        default 1 if LOG_LEVEL_GLOBAL_ERROR
+        default 2 if LOG_LEVEL_GLOBAL_WARN
+        default 3 if LOG_LEVEL_GLOBAL_INFO
+        default 4 if LOG_LEVEL_GLOBAL_DEBUG
+        default 5 if LOG_LEVEL_GLOBAL_VERBOSE
+        help
+            Internal value for global log level.
+
+    endmenu
+
+    menu "Pin Configuration"
+        config PIN_3V3_BUS
+            int "3.3V bus enable pin, 0 if board does not have one"
+            default 47
+
+        config PIN_LED
+            int "On-board RGB LED pin for status indication"
+            default 45
+
+        config PIN_SPI_MOSI
+            int "SPI MOSI pin"
+            default 11
+
+        config PIN_SPI_MISO
+            int "SPI MISO pin"
+            default 13
+
+        config PIN_SPI_CLK
+            int "SPI CLK pin"
+            default 12
+
+        config PIN_I2C_SDA
+            int "I2C SDA pin"
+            default 42
+
+        config PIN_I2C_SCL
+            int "I2C SCL pin"
+            default 2
+
+        config PIN_MOT_F
+            int "Motor forward pin"
+            default 37
+
+        config PIN_MOT_R
+            int "Motor reverse pin"
+            default 36
+
+        config PIN_MOT_EN
+            int "Motor enable pin"
+            default 38
+
+        config PIN_STEERING_SERVO
+            int "Steering servo pin"
+            default 48
+
+        config PIN_TOP_SERVO
+            int "Top servo pin"
+            default 21
+
+        config ADC_UNIT_BATTERY_VOLTAGE
+            int "ADC unit for battery voltage (usually 0 (ADC_UNIT_1) or 1 (ADC_UNIT_2))"
+            default 0
+        config ADC_CHANNEL_BATTERY_VOLTAGE
+            int "ADC channel for battery voltage (usually 0-9)"
+            default 7
+
+    endmenu
+    menu "Motor Configuration"
+        config SERVO_TIMEBASE_RESOLUTION
+            int "Servo resolution (in Hz)"
+            default 1000000
+        config SERVO_TIMEBASE_PERIOD
+            int "Servo periond (in microseconds)"
+            default 20000
+    endmenu
+    menu "Voltage divider configuration"
+        config VOLTAGE_DIVIDER_R1
+            int "Voltage divider R1 (in ohms)"
+            default 10000
+        config VOLTAGE_DIVIDER_R2
+            int "Voltage divider R2 (in ohms)"
+            default 40000
+    endmenu
+endmenu

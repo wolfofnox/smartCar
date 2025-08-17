@@ -2,29 +2,46 @@
  * ESP-IDF Project template
  */
 
-#include "Config.h"
+#include <stdio.h>
+#include <inttypes.h>
+#include "sdkconfig.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
+
+#include "Wifi.h"
+#include "wifi_sta_handlers.h"
+
+#include "servo.h"
+#include "l298n_motor.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali_scheme.h"
+#include "esp_sleep.h"
+#include "ssd1306.h"
+// #include "font8x8_basic.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+
 
 // --- Define variables, classes ---
 #pragma region Variables
 
 int64_t bootTime;   ///< System boot time in microseconds
+const char *TAG = "main";  ///< Log tag for this module
+const char *NVS_NAMESPACE_APP = "app_settings";
+#define VOLTAGE_DIVIDER_RATIO ((CONFIG_VOLTAGE_DIVIDER_R1 + CONFIG_VOLTAGE_DIVIDER_R2) / CONFIG_VOLTAGE_DIVIDER_R1)
+
+typedef enum {
+    BATTERY_WALL_ADAPTER, ///< Wall adapter power supply
+    BATTERY_6xNiMH        ///< 6x NiMH rechargeable batteries
+} battery_type_t;
 
 adc_cali_handle_t adc_cali;
 adc_oneshot_unit_handle_t adc_unit;
 
 SSD1306_t display;
-
-led_indicator_handle_t led_handle; ///< Handle for the LED indicator
-const blink_step_t *led_blink_list[BLINK_MAX] = {
-    [BLINK_OFF] = off,
-    [BLINK_LOADING] = loading,
-    [BLINK_LOADED] = loaded,
-    [BLINK_WIFI_CONNECTING] = wifi_connecting,
-    [BLINK_WIFI_CONNECTED] = wifi_connected,
-    [BLINK_WIFI_DISCONNECTED] = wifi_disconnected,
-    [BLINK_WIFI_AP_STARTING] = wifi_ap_starting,
-    [BLINK_WIFI_AP_STARTED] = wifi_ap_started
-};
 
 servo_handle_t steeringServo = NULL; ///< Handle for the steering servo
 servo_handle_t topServo = NULL; ///< Handle for the throttle servo
@@ -32,7 +49,7 @@ l298n_motor_handle_t motor = NULL;
 
 // nvs setting variables
 servo_config_t steeringCfg = {
-    .gpio_num = PIN_STEER_SERVO,
+    .gpio_num = CONFIG_PIN_STEERING_SERVO,
     .min_pulsewidth_us = 1270,
     .max_pulsewidth_us = 2080,
     .min_degree = -90,
@@ -41,7 +58,7 @@ servo_config_t steeringCfg = {
     .resolution_hz = 1000000,
 };
 servo_config_t topCfg = {
-    .gpio_num = PIN_TOP_SERVO,
+    .gpio_num = CONFIG_PIN_TOP_SERVO,
     .min_pulsewidth_us = 500,
     .max_pulsewidth_us = 2400,
     .min_degree = -90,
@@ -50,9 +67,9 @@ servo_config_t topCfg = {
     .resolution_hz = 1000000,
 };
 l298n_motor_config_t motorCfg = {
-    .en_pin = PIN_MOT_EN,
-    .in1_pin = PIN_MOT_1,
-    .in2_pin = PIN_MOT_2,
+    .en_pin = CONFIG_PIN_MOT_EN,
+    .in1_pin = CONFIG_PIN_MOT_F,
+    .in2_pin = CONFIG_PIN_MOT_R,
     .ledc_channel = LEDC_CHANNEL_0,
     .ledc_mode = LEDC_LOW_SPEED_MODE,
     .ledc_timer = LEDC_TIMER_0,
@@ -80,54 +97,25 @@ void save_nvs_settings();
 void app_main(void)
 {
     // Set log level
-    esp_log_level_set("*", LOG_LEVEL_GLOBAL);
-    esp_log_level_set(__FILE__, LOG_LEVEL_SOURCE);
-    esp_log_level_set("Web socket", LOG_LEVEL_SOURCE);
-    ESP_LOGI(__FILE__, "START %s from %s", __FILE__, __DATE__);
-    ESP_LOGI(__FILE__, "Setting up...");
-    
+    esp_log_level_set("*", CONFIG_LOG_LEVEL_GLOBAL);
+    esp_log_level_set(TAG, CONFIG_LOG_LEVEL_SOURCE);
+    esp_log_level_set("Web socket", CONFIG_LOG_LEVEL_SOURCE);
+    ESP_LOGI(TAG, "START %s from %s", __FILE__, __DATE__);
+    ESP_LOGI(TAG, "Setting up...");
+
     // Configure GPIO 3V3 bus output
     gpio_config_t v_bus_config = {
-        .pin_bit_mask = (1ULL << PIN_3V3_BUS),
+        .pin_bit_mask = (1ULL << CONFIG_PIN_3V3_BUS),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type = GPIO_INTR_DISABLE
     };
     ESP_ERROR_CHECK(gpio_config(&v_bus_config));
-    ESP_ERROR_CHECK(gpio_set_level(PIN_3V3_BUS, 1));
-
-    // Configure LED indicator
-    led_indicator_strips_config_t led_indicator_strips_cfg = {
-        .led_strip_cfg = {
-            .strip_gpio_num = PIN_LED,  ///< GPIO number for the LED strip
-            .max_leds = 1,               ///< Maximum number of LEDs in the strip
-            .led_pixel_format = LED_PIXEL_FORMAT_GRB,  ///< Pixel format
-            .led_model = LED_MODEL_SK6812,  ///< LED driver model
-            .flags.invert_out = 0,       ///< Invert output signal
-        },
-        .led_strip_driver = LED_STRIP_SPI,
-        .led_strip_spi_cfg = {
-            .clk_src = SPI_CLK_SRC_DEFAULT,  ///< SPI clock source
-            .spi_bus = SPI3_HOST,  ///< SPI bus host
-        },
-    };
-    led_indicator_config_t led_cfg = {
-        .mode = LED_STRIPS_MODE,  ///< LED mode (e.g., LED_STRIP_MODE)
-        .led_indicator_strips_config = &led_indicator_strips_cfg,
-        .blink_lists = led_blink_list,
-        .blink_list_num = BLINK_MAX, 
-    };
-
-    led_handle = led_indicator_create(&led_cfg);
-    if (led_handle == NULL) {
-        ESP_LOGE(__FILE__, "Failed to create LED indicator");
-    }
-
-    led_indicator_start(led_handle, BLINK_LOADING); // Start LED indicator with loading animation
+    ESP_ERROR_CHECK(gpio_set_level(CONFIG_PIN_3V3_BUS, 1));
 
     // SSD1306 display config
-    i2c_master_init(&display, PIN_I2C_SDA, PIN_I2C_SCL, -1);
+    i2c_master_init(&display, CONFIG_PIN_I2C_SDA, CONFIG_PIN_I2C_SCL, -1);
     display._flip = true;
     ssd1306_init(&display, 128, 64);
     ssd1306_clear_screen(&display, false);
@@ -135,7 +123,7 @@ void app_main(void)
 
     // init ADC
     adc_oneshot_unit_init_cfg_t adc_unit_cfg = {
-        .unit_id = ADC_UNIT_BAT_VOLT,
+        .unit_id = CONFIG_ADC_UNIT_BATTERY_VOLTAGE,
         .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
         .ulp_mode = ADC_ULP_MODE_DISABLE
     };
@@ -145,11 +133,11 @@ void app_main(void)
         .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_12
     };
-    adc_oneshot_config_channel(adc_unit, ADC_CHANNEL_BAT_VOLT, &chan_cfg);
+    adc_oneshot_config_channel(adc_unit, CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE, &chan_cfg);
 
     adc_cali_curve_fitting_config_t adc_cali_cfg = {
-        .unit_id = ADC_UNIT_BAT_VOLT,
-        .chan = ADC_CHANNEL_BAT_VOLT,
+        .unit_id = CONFIG_ADC_UNIT_BATTERY_VOLTAGE,
+        .chan = CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE,
         .bitwidth = ADC_BITWIDTH_12,
         .atten = ADC_ATTEN_DB_12
     };
@@ -157,7 +145,6 @@ void app_main(void)
 
     xTaskCreate(check_battery_task, "check_battery_task", 4096, NULL, 6, NULL);
 
-    #if USE_NVS == 1 // Initialize NVS (Non-Volatile Storage)
     ESP_LOGI(__FILE__, "Initializing NVS...");
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -165,7 +152,6 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    #endif
 
     load_nvs_calibration(); // Load NVS configuration
     
@@ -176,32 +162,18 @@ void app_main(void)
     // DC motor config
     motor = l298n_motor_init(&motorCfg);
 
-    #if USE_WiFi == 1 // Initialize WiFi
     wifi_init();
-    #endif
+
+    set_handlers();
 
     // Get boot time for uptime calculation
     bootTime = esp_timer_get_time();
-    led_indicator_stop(led_handle, BLINK_LOADING);
-    led_indicator_start(led_handle, BLINK_LOADED);
-
-    int speed = 0;
-    int step = 5;
-    while (0) {
-        ESP_LOGI(__FILE__, "Speedn: %d", speed);
-        ESP_ERROR_CHECK(l298n_motor_set_speed(motor, speed));
-        vTaskDelay(pdMS_TO_TICKS(100));
-        if ((speed + step) > 100 || (speed + step) < -100) {
-            step *= -1;
-        }
-        speed += step;
-    }
 }
 
 float get_battery_voltage() {
     int voltage_mv;
-    adc_oneshot_get_calibrated_result(adc_unit, adc_cali, ADC_CHANNEL_BAT_VOLT, &voltage_mv);
-    return voltage_mv / 1000.0 * BATTERY_VOLTAGE_MULTIPLIER;
+    adc_oneshot_get_calibrated_result(adc_unit, adc_cali, CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE, &voltage_mv);
+    return voltage_mv / 1000.0 * VOLTAGE_DIVIDER_RATIO;
 }
 
 void check_battery() {
@@ -244,7 +216,7 @@ void deep_sleep() {
     servo_deinit(topServo);
     l298n_motor_deinit(motor);
     vTaskDelay(1000/portTICK_PERIOD_MS);
-    gpio_set_level(PIN_3V3_BUS, 0);
+    gpio_set_level(CONFIG_PIN_3V3_BUS, 0);
     esp_deep_sleep_start();
 }
 

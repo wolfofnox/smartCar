@@ -80,8 +80,8 @@ l298n_motor_handle_t l298n_motor_init(const l298n_motor_config_t *config) {
     motor->pwm_max_duty = (1 << LEDC_TIMER_13_BIT) - 1;
 
     // Init motor stopped
-    ESP_RETURN_ON_ERROR(gpio_set_level(motor->in1_pin, 0), TAG, "failed to set gpio %d", motor->in1_pin);
-    ESP_RETURN_ON_ERROR(gpio_set_level(motor->in2_pin, 0), TAG, "failed to set gpio %d", motor->in2_pin);
+    ESP_ERROR_CHECK(gpio_set_level(motor->in1_pin, 0));
+    ESP_ERROR_CHECK(gpio_set_level(motor->in2_pin, 0));
     ledc_set_duty(motor->ledc_mode, motor->ledc_channel, 0);
     ledc_update_duty(motor->ledc_mode, motor->ledc_channel);
 

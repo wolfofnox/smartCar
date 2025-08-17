@@ -1,26 +1,39 @@
 #include "wifi_sta_handlers.h"
+#include "sdkconfig.h"
+#include "esp_log.h"
+#include "Wifi.h"
+#include "l298n_motor.h"
+#include "servo.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
+#include "esp_timer.h"
 
-extern const char index_html_start[] asm("_binary_index_html_start");
-extern const char index_html_end[] asm("_binary_index_html_end");
-extern const char nav_html_start[] asm("_binary_nav_html_start");
-extern const char nav_html_end[] asm("_binary_nav_html_end");
-extern const char styles_css_start[] asm("_binary_styles_css_start");
-extern const char styles_css_end[] asm("_binary_styles_css_end");
-extern const char comon_js_start[] asm("_binary_comon_js_start");
-extern const char comon_js_end[] asm("_binary_comon_js_end");
-extern const char ws_js_start[] asm("_binary_ws_js_start");
-extern const char ws_js_end[] asm("_binary_ws_js_end");
-extern const char status_html_start[] asm("_binary_status_html_start");
-extern const char status_html_end[] asm("_binary_status_html_end");
-extern const char control_html_start[] asm("_binary_control_html_start");
-extern const char control_html_end[] asm("_binary_control_html_end");
-extern const char calibrate_html_start[] asm("_binary_calibrate_html_start");
-extern const char calibrate_html_end[] asm("_binary_calibrate_html_end");
+extern int64_t bootTime;  ///< System boot time in microseconds
+
+extern httpd_handle_t server;
+
+extern servo_handle_t steeringServo;
+extern servo_handle_t topServo;
+extern l298n_motor_handle_t motor;
+
+extern servo_config_t steeringCfg; ///< Steering servo configuration
+extern servo_config_t topCfg; ///< Top servo configuration
+extern l298n_motor_config_t motorCfg; ///< Motor configuration
+
+extern void save_nvs_calibration(); ///< Save configuration to NVS
 
 static TimerHandle_t ws_watchdog_timer = NULL; ///< WebSocket timeout watchdog timer handle
 
 static uint32_t ws_watchdog_timeout = 5000; ///< WebSocket timeout in milliseconds
 static int ws_socket_fd = -1; ///< WebSocket socket file descriptor
+
+esp_err_t calibrate_post_handler(httpd_req_t *req);
+
+esp_err_t status_json_handler(httpd_req_t *req);
+
+esp_err_t websocket_handler(httpd_req_t *req);
+void ws_watchdog_callback(TimerHandle_t xTimer);
+void ws_watchdog_start();
 
 /**
  * @brief Register HTTP URI handlers for the web server in station mode.
@@ -30,46 +43,6 @@ static int ws_socket_fd = -1; ///< WebSocket socket file descriptor
 void set_handlers() {
     ESP_LOGI(__FILE__, "Setting up uri handlers...");
 
-    httpd_uri_t root_uri = {
-        .uri = "/",
-        .method = HTTP_GET,
-        .handler = root_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &root_uri);
-
-    httpd_uri_t status_uri = {
-        .uri = "/status",
-        .method = HTTP_GET,
-        .handler = status_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &status_uri);
-
-    httpd_uri_t control_uri = {
-        .uri = "/control",
-        .method = HTTP_GET,
-        .handler = control_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &control_uri);
-
-    httpd_uri_t data_json_uri = {
-        .uri = "/data.json",
-        .method = HTTP_GET,
-        .handler = data_json_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &data_json_uri);
-
-    httpd_uri_t restart_uri = {
-        .uri = "/restart",
-        .method = HTTP_GET,
-        .handler = restart_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &restart_uri);
-
     httpd_uri_t ws_uri = {
         .uri = "/ws",
         .method = HTTP_GET,
@@ -78,15 +51,7 @@ void set_handlers() {
         .is_websocket = true,
         .handle_ws_control_frames = true
     };
-    httpd_register_uri_handler(server, &ws_uri);
-
-    httpd_uri_t calibrate_get_uri = {
-        .uri = "/calibrate",
-        .method = HTTP_GET,
-        .handler = calibrate_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &calibrate_get_uri);
+    wifi_register_http_handler(&ws_uri);
 
     httpd_uri_t calibrate_post_uri = {
         .uri = "/calibrate",
@@ -94,108 +59,25 @@ void set_handlers() {
         .handler = calibrate_post_handler,
         .user_ctx = NULL
     };
-    httpd_register_uri_handler(server, &calibrate_post_uri);
+    wifi_register_http_handler(&calibrate_post_uri);
 
-    httpd_uri_t styles_css_uri = {
-        .uri = "/styles.css",
+    httpd_uri_t status_json_uri = {
+        .uri = "/status.json",
         .method = HTTP_GET,
-        .handler = styles_css_handler,
+        .handler = status_json_handler,
         .user_ctx = NULL
     };
-    httpd_register_uri_handler(server, &styles_css_uri);
-
-    httpd_uri_t comon_js_uri = {
-        .uri = "/comon.js",
-        .method = HTTP_GET,
-        .handler = comon_js_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &comon_js_uri);
-
-    httpd_uri_t ws_js_uri = {
-        .uri = "/ws.js",
-        .method = HTTP_GET,
-        .handler = ws_js_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &ws_js_uri);
-
-    httpd_uri_t nav_uri = {
-        .uri = "/nav.html",
-        .method = HTTP_GET,
-        .handler = nav_handler,
-        .user_ctx = NULL
-    };
-    httpd_register_uri_handler(server, &nav_uri);
-
-    httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, not_found_handler);
+    wifi_register_http_handler(&status_json_uri);
 }
 
-/**
- * @brief HTTP error handler for 404.
- */
-esp_err_t not_found_handler(httpd_req_t *req, httpd_err_code_t error) {
-    char text[256];
-    size_t len = 0;
-    len += snprintf(text + len, sizeof(text) - len, "404 Not Found\n\n");
-    len += snprintf(text + len, sizeof(text) - len, "URI: %s\n", req->uri);
-    len += snprintf(text + len, sizeof(text) - len, "Method: %s\n", (req->method == HTTP_GET) ? "GET" : "POST");
-    len += snprintf(text + len, sizeof(text) - len, "Arguments:\n");
-    char query[128];
-    size_t query_len = httpd_req_get_url_query_len(req) + 1;
-    if (query_len > 1) {
-        httpd_req_get_url_query_str(req, query, query_len);
-        len += snprintf(text + len, sizeof(text) - len, "%s\n", query);
-    }
-    httpd_resp_set_status(req, "404 Not Found");
-    httpd_resp_set_type(req, "text/plain");
-    httpd_resp_send(req, text, HTTPD_RESP_USE_STRLEN);
-    ESP_LOGW(__FILE__, "%s", text);
-    return ESP_FAIL;
-}
-
-esp_err_t root_handler(httpd_req_t *req) {
-    size_t len = index_html_end - index_html_start;
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, (const char *)index_html_start, len);
-}
-
-/**
- * @brief HTTP handler for /status endpoint (returns HTML status page).
- */
-esp_err_t status_handler(httpd_req_t *req) {
-    size_t len = status_html_end - status_html_start;
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, (const char *)status_html_start, len);
-}
-
-/**
- * @brief HTTP handler for /restart endpoint (restarts ESP32).
- */
-esp_err_t restart_handler(httpd_req_t *req) {
-    httpd_resp_set_status(req, "302 Temporary Redirect");
-    httpd_resp_set_hdr(req, "Location", "/");
-    httpd_resp_send(req, "Restarting...", HTTPD_RESP_USE_STRLEN);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    mdns_free();
-    esp_restart();
-    return ESP_OK;
-}
 
 /**
  * @brief HTTP handler for returning JSON data about the ESP32 status.
  */
-esp_err_t data_json_handler(httpd_req_t *req) {
+esp_err_t status_json_handler(httpd_req_t *req) {
     char json[300];
-    char ip_str[IP4ADDR_STRLEN_MAX];
-    esp_netif_ip_info_t ip_info;
-    if (sta_netif && esp_netif_get_ip_info(sta_netif, &ip_info) == ESP_OK) {
-        esp_ip4addr_ntoa(&ip_info.ip, ip_str, IP4ADDR_STRLEN_MAX);
-    } else {
-        strcpy(ip_str, "N/A");
-    }
-    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"localIP\": \"%s\", \"speed\": %d, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d}",  
-             (esp_timer_get_time() - bootTime) / 1000, ip_str,
+    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"speed\": %d, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d}",
+             (esp_timer_get_time() - bootTime) / 1000,
             servo_get_angle(steeringServo), servo_get_angle(topServo), l298n_motor_get_speed(motor),
             steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us, steeringCfg.min_degree, steeringCfg.max_degree,
             topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us, topCfg.min_degree, topCfg.max_degree);
@@ -204,17 +86,6 @@ esp_err_t data_json_handler(httpd_req_t *req) {
     return httpd_resp_send(req, json, strlen(json));
 }
 
-esp_err_t control_handler(httpd_req_t* req) {
-    size_t len = control_html_end - control_html_start;
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, (const char *)control_html_start, len);
-}
-
-esp_err_t calibrate_handler(httpd_req_t *req) {
-    size_t len = calibrate_html_end - calibrate_html_start;
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, (const char *)calibrate_html_start, len);
-}
 
 esp_err_t calibrate_post_handler(httpd_req_t *req) {
     char buf[256];
@@ -272,7 +143,6 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     // Handle incoming WebSocket frame
     httpd_ws_frame_t ws_pkt;
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
     ws_pkt.payload = NULL;
 
     esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 0);
@@ -302,7 +172,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     char *eventPtr = strstr((char *)ws_pkt.payload, "\"event\":");
     if (eventPtr) {
         char *eventValue = eventPtr + 9; // Skip past the "event": part
-        if (strncmp(eventValue, "\"ws_timeout\"", 12) == 0) {
+        if (strcmp(eventValue, "\"ws_timeout\"") == 0) {
             ESP_LOGV("Web socket", "WebSocket timeout event received");
             ws_watchdog_callback(NULL); // Reset power save mode
         } else if (strcmp(eventValue, "\"revert\"") == 0) {
@@ -377,6 +247,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
 void ws_watchdog_callback(TimerHandle_t xTimer) {
     ESP_LOGD("Web socket", "WebSocket timed out, resetting power save mode");
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM); // Re-enable power save mode
+    httpd_handle_t server = (httpd_handle_t)pvTimerGetTimerID(xTimer);
     
     // Restore servo config from global variables
     servo_set_nim_max_pulsewidth(steeringServo, steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us);
@@ -409,28 +280,4 @@ void ws_watchdog_start() {
     if (ps_type != WIFI_PS_NONE) {
         esp_wifi_set_ps(WIFI_PS_NONE); // Disable power save mode for WebSocket
     }
-}
-
-esp_err_t styles_css_handler(httpd_req_t *req) {
-    size_t len = styles_css_end - styles_css_start;
-    httpd_resp_set_type(req, "text/css; charset=utf-8");
-    return httpd_resp_send(req, (const char *)styles_css_start, len);
-}
-
-esp_err_t comon_js_handler(httpd_req_t *req) {
-    size_t len = comon_js_end - comon_js_start;
-    httpd_resp_set_type(req, "application/javascript; charset=utf-8");
-    return httpd_resp_send(req, (const char *)comon_js_start, len);
-}
-
-esp_err_t ws_js_handler(httpd_req_t *req) {
-    size_t len = ws_js_end - ws_js_start;
-    httpd_resp_set_type(req, "application/javascript; charset=utf-8");
-    return httpd_resp_send(req, (const char *)ws_js_start, len);
-}
-
-esp_err_t nav_handler(httpd_req_t *req) {
-    size_t len = nav_html_end - nav_html_start;
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, (const char *)nav_html_start, len);
 }

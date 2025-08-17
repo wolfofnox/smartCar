@@ -50,11 +50,11 @@ dependencies:
   idf:
     source:
       type: idf
-    version: 5.3.3
+    version: 5.5.0
 direct_dependencies:
 - espressif/led_indicator
 - espressif/mdns
 - idf
-manifest_hash: 61e64961c13b4818cad1ff14873e99896fb878990f3b7929376ee7d5b45b362f
+manifest_hash: d38093c7dedb188516dd607b51e019fd242f3ac45f6d9cc004b8863186ba8de1
 target: esp32s3
 version: 2.0.0
