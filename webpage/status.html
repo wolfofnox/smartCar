@@ -9,32 +9,23 @@
   <div id="nav"></div>
   <div class="card">
     <h1>ESP32 RC Car Status</h1>
-    <div class="status"></div>
-    <p>Uptime: <span id="uptime">--</span></p>
-    <p>Local IP: <span id="localIP">--</span></p>
+    <div class="message"></div>
     <p>Speed: <span id="speed">--</span></p>
     <p>Steering: <span id="steering">--</span></p>
     <p>Top Servo: <span id="top">--</span></p>
   </div>
-  <footer id="footer"></footer>
+  <footer id="status"></footer>
   <script src="common.js"></script>
   <script>
     async function fetchData() {
-      const response = await fetch('/status.json');
-      if (!response.ok) {
-        status('error', 'Failed to fetch data', 3000);
-        console.error('Error fetching data:', response.status, response.statusText);
-        return;
-      }
-      const data = await response.json();
-      status('none', '');
-      document.getElementById('uptime').textContent = `${Math.floor(data.uptime / 1000 / 60 / 60 / 24)}d ${Math.floor(data.uptime / 1000 / 60 / 60) % 24}h ${Math.floor(data.uptime / 1000 / 60) % 60}m ${Math.floor(data.uptime / 1000) % 60}s`;
-      document.getElementById('localIP').textContent = data.localIP || 'N/A';
-      document.getElementById('speed').textContent = data.speed || 'N/A';
-      document.getElementById('steering').textContent = data.steering || 'N/A';
-      document.getElementById('top').textContent = data.top || 'N/A';
+      fetchStatuses().then(json => {
+        message('none', '');
+        document.getElementById('speed').textContent = json.status.speed !== undefined ? json.status.speed : 'N/A';
+        document.getElementById('steering').textContent = json.status.steering !== undefined ? json.status.steering : 'N/A';
+        document.getElementById('top').textContent = json.status.top !== undefined ? json.status.top : 'N/A';
+      });
     }
-    status('info', 'Fetching data...', 10000);
+    message('info', 'Fetching data...', 10000);
     setInterval(fetchData, 3000);
     fetchData();
   </script>

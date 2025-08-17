@@ -11,7 +11,7 @@
   <div id="nav"></div>
   <div class="card">
     <h1>Servo Calibration</h1>
-    <div class="status"></div>
+    <div class="message"></div>
     <div class="slider-group">
       <div class="slider-label-row">
         <label for="minPWM">Min Pulse Width (us):</label>
@@ -83,7 +83,7 @@
       <button onclick="sendWSMessage(JSON.stringify({event: 'revert'})); fetchCalibration();"">Revert</button>
     </div>
   </div>
-  <footer id="footer"></footer>
+  <footer id="status"></footer>
   <script src="common.js"></script>
   <script src="ws.js"></script>
   <script>
@@ -92,7 +92,7 @@
       const data = JSON.parse(e.data);
       if (data.event === 'ws_timeout') {
         fetchCalibration();
-        status('warn', 'WebSocket timeout, calibration reverted', 3000);
+        message('warn', 'WebSocket timeout, calibration reverted', 3000);
       }
     }
 
@@ -139,8 +139,7 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
       }).then(r=>r.text()).then(msg=>{
-        status.textContent = msg;
-        setTimeout(()=>status.textContent='', 2000);
+        message('info', msg, 2000);
       });
     }
     minPWM.addEventListener('input', () => {

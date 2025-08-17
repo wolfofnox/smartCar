@@ -1,4 +1,9 @@
 menu "Project Configuration"
+    config VERSION
+        string "Version"
+        default "1.0.0"
+        help
+            Set the version of the project.
 
     menu "Logging Configuration"
 

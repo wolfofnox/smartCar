@@ -82,32 +82,32 @@ button:hover {
   justify-content: center;
   margin-top: 1em;
 }
-.status {
+.message {
   margin: 1em 0;
   padding: 0 1em;
   border-radius: 6px;
   font-weight: bold;
   display: none; /* hidden by default */
 }
-.status.info {
+.message.info {
   background: #e3f2fd;
   color: #1565c0;
   border: 1px solid #90caf9;
   display: block;
 }
-.status.success {
+.message.success {
   background: #e8f5e9;
   color: #388e3c;
   border: 1px solid #a5d6a7;
   display: block;
 }
-.status.error {
+.message.error {
   background: #ffebee;
   color: #c62828;
   border: 1px solid #ef9a9a;
   display: block;
 }
-.status.warn {
+.message.warn {
   background: #fff3e0;
   color: #f57c00;
   border: 1px solid #ffcc80;
@@ -126,14 +126,18 @@ button, a {
     padding: 0.5em 1em;
   }
 }
-footer#footer {
+footer#status {
   position: fixed;
   left: 0;
   bottom: 0;
   width: 100%;
   background: #222;
   color: #fff;
-  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
   padding: 8px 0;
   font-size: 0.95em;
   z-index: 100;

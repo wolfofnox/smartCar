@@ -594,6 +594,7 @@ CONFIG_PARTITION_TABLE_MD5=y
 #
 # Project Configuration
 #
+CONFIG_VERSION="0.0.0"
 
 #
 # Logging Configuration

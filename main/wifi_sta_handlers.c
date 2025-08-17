@@ -7,6 +7,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
 #include "esp_timer.h"
+#include "esp_heap_caps.h"
 
 extern int64_t bootTime;  ///< System boot time in microseconds
 
@@ -76,8 +77,10 @@ void set_handlers() {
  */
 esp_err_t status_json_handler(httpd_req_t *req) {
     char json[300];
-    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"speed\": %d, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d}",
-             (esp_timer_get_time() - bootTime) / 1000,
+    int free_heap = heap_caps_get_free_size(MALLOC_CAP_DEFAULT);
+    int total_heap = heap_caps_get_total_size(MALLOC_CAP_DEFAULT);
+    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"freeHeap\": %d, \"totalHeap\": %d, \"version\": \"%s\", \"speed\": %d, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d}",
+             (esp_timer_get_time() - bootTime) / 1000, free_heap, total_heap, CONFIG_VERSION,
             servo_get_angle(steeringServo), servo_get_angle(topServo), l298n_motor_get_speed(motor),
             steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us, steeringCfg.min_degree, steeringCfg.max_degree,
             topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us, topCfg.min_degree, topCfg.max_degree);
@@ -247,7 +250,6 @@ esp_err_t websocket_handler(httpd_req_t *req) {
 void ws_watchdog_callback(TimerHandle_t xTimer) {
     ESP_LOGD("Web socket", "WebSocket timed out, resetting power save mode");
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM); // Re-enable power save mode
-    httpd_handle_t server = (httpd_handle_t)pvTimerGetTimerID(xTimer);
     
     // Restore servo config from global variables
     servo_set_nim_max_pulsewidth(steeringServo, steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us);

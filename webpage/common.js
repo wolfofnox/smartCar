@@ -1,62 +1,62 @@
-let statusQueue = [];
-let statusActive = false;
-let statusTimeout = null;
-let statusStartTime = 0;
-const fastStatusduration = 1000;
+let messageQueue = [];
+let messageIsActive = false;
+let messageTimeout = null;
+let messageStartTime = 0;
+const fastMessageDuration = 1000;
 
-function processStatusQueue() {
-    if (statusActive || statusQueue.length === 0) return;
-    statusActive = true;
-    const { type, message, duration } = statusQueue.shift();
-    const statusDiv = document.querySelector('.status');
-    if (!statusDiv) {
-        console.error('Status div not found');
-        statusActive = false;
+function processMessageQueue() {
+    if (messageIsActive || messageQueue.length === 0) return;
+    messageIsActive = true;
+    const { type, message, duration } = messageQueue.shift();
+    const messageDiv = document.querySelector('.message');
+    if (!messageDiv) {
+        console.error('Message div not found');
+        messageIsActive = false;
         return;
     }
-    statusDiv.className = 'status ' + type;
-    statusDiv.innerHTML = `<p>${message}</p>`;
-    statusStartTime = Date.now();
-    const showTime = statusQueue.length > 0 ? fastStatusduration : (duration || 2000);
-    statusTimeout = setTimeout(() => {
-        statusDiv.className = 'status';
-        statusDiv.innerHTML = '';
-        statusActive = false;
-        processStatusQueue();
+    messageDiv.className = 'message ' + type;
+    messageDiv.innerHTML = `<p>${message}</p>`;
+    messageStartTime = Date.now();
+    const showTime = messageQueue.length > 0 ? fastMessageDuration : (duration || 2000);
+    messageTimeout = setTimeout(() => {
+        messageDiv.className = 'message';
+        messageDiv.innerHTML = '';
+        messageIsActive = false;
+        processMessageQueue();
     }, showTime);
 }
 
-function status(type, message, duration) {
-    const statusDiv = document.querySelector('.status');
-    if (!statusDiv) {
-        console.error('Status div not found');
+function message(type, message, duration) {
+    const messageDiv = document.querySelector('.message');
+    if (!messageDiv) {
+        console.error('Message div not found');
         return;
     }
-        if (type === 'none') {
-        statusDiv.className = 'status';
-        statusDiv.innerHTML = '';
-        statusActive = false;
-        processStatusQueue();
+    if (type === 'none') {
+        messageDiv.className = 'message';
+        messageDiv.innerHTML = '';
+        messageIsActive = false;
+        processMessageQueue();
         return;
     }
-    statusQueue.push({ type, message, duration });
-    if (statusActive) {
-        const elapsed = Date.now() - statusStartTime;
-        if (elapsed < fastStatusduration) {
-            clearTimeout(statusTimeout);
-            statusTimeout = setTimeout(() => {
-                statusDiv.className = 'status';
-                statusDiv.innerHTML = '';
-                statusActive = false;
-                processStatusQueue();
-            }, fastStatusduration - elapsed);
+    messageQueue.push({ type, message, duration });
+    if (messageIsActive) {
+        const elapsed = Date.now() - messageStartTime;
+        if (elapsed < fastMessageDuration) {
+            clearTimeout(messageTimeout);
+            messageTimeout = setTimeout(() => {
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = '';
+                messageIsActive = false;
+                processMessageQueue();
+            }, fastMessageDuration - elapsed);
         } else {
-            clearTimeout(statusTimeout);
-            statusActive = false;
-            processStatusQueue();
+            clearTimeout(messageTimeout);
+            messageIsActive = false;
+            processMessageQueue();
         }
     } else {
-        processStatusQueue();
+        processMessageQueue();
     }
 }
 
@@ -68,20 +68,35 @@ function msToTime(ms) {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function updateFooter() {
-    Promise.all([
-        fetch('/status.json').then(r => r.json()).catch(() => ({})),
-        fetch('/wifi-status.json').then(r => r.json()).catch(() => ({}))
+async function fetchStatuses() {
+    return Promise.all([
+        fetch('/status.json')
+        .then(r => {
+            if (!r.ok) {message('error', 'Failed to fetch status', 2000); return {}; }
+            return r.json();
+        }).catch(() => ({})),
+        fetch('/wifi-status.json').then(r => {
+            if (!r.ok) {message('error', 'Failed to fetch WiFi status', 2000); return {};}
+            return r.json();
+        }).catch(() => ({}))
     ]).then(([status, wifi]) => {
-        let html = '';
-        html += wifi.connected ? 'WiFi: Connected' : 'WiFi: Disconnected';
-        html += ' | IP: ' + (wifi.ip || 'N/A');
-        html += ' | Heap: ' + (status.heap || 'N/A') + ' bytes';
-        html += ' | Uptime: ' + (msToTime(status.uptime) || 'N/A');
-        html += ' | FW: ' + (status.version || 'N/A');
-        html += ' | LED brightness: ' + (status.brightness || 0);
-        html += ' | <span style="font-size:0.9em;">Last update: ' + new Date().toLocaleTimeString() + '</span>';
-        document.getElementById('footer').innerHTML = html;
+        return { status: status, wifi: wifi };
+    });
+}
+
+function updateFooter() {
+    fetchStatuses().then(json => {
+        const wifiStatus = json.wifi.connected ? 'Connected' : 'Disconnected';
+        const wifiColor = json.wifi.connected ? 'color: #388e3c;' : 'color: #c62828;';
+        let html = `
+        <span style="${wifiColor}">WiFi: ${wifiStatus}</span>
+        <span>IP: ${json.wifi.ip || 'N/A'}</span>
+        <span>Heap: ${json.status.totalHeap - json.status.freeHeap || 'N/A'}/${json.status.totalHeap || 'N/A'} bytes</span>
+        <span>Uptime: ${msToTime(json.status.uptime) || 'N/A'}</span>
+        <span>FW: ${json.status.version || 'N/A'}</span>
+        <span style="font-size:0.9em;">Last update: ${new Date().toLocaleTimeString()}</span>
+        `;
+        document.getElementById('status').innerHTML = html;
     });
 }
 
