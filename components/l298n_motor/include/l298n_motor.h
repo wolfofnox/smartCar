@@ -19,7 +19,7 @@ typedef struct {
     uint32_t pwm_freq_hz;         // PWM frequency, e.g. 5000
 } l298n_motor_config_t;
 
-l298n_motor_handle_t l298n_motor_init(const l298n_motor_config_t *config);
+esp_err_t l298n_motor_init(l298n_motor_handle_t *motor, const l298n_motor_config_t *config);
 esp_err_t l298n_motor_set_speed(l298n_motor_handle_t motor, int8_t speed_percent);
 esp_err_t l298n_motor_stop(l298n_motor_handle_t motor);
 int8_t l298n_motor_get_speed(l298n_motor_handle_t motor);

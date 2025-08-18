@@ -12,12 +12,12 @@ typedef struct {
     int8_t angle;
 } servo_t;
 
-servo_handle_t servo_init(servo_config_t *config) {
+esp_err_t servo_init(servo_handle_t *servo, servo_config_t *config) {
     const char* TAG = "servo_init";
-    servo_t *servo = calloc(1, sizeof(servo_t));
-    if (!servo) {
+    servo_t *srv = calloc(1, sizeof(servo_t));
+    if (!srv) {
         ESP_LOGE(TAG, "Failed servo struct allocation: Out of memory, returning NULL");
-        return NULL;
+        return ESP_ERR_NO_MEM;
     }
 
     mcpwm_cmpr_handle_t cmpr = NULL;
@@ -32,48 +32,91 @@ servo_handle_t servo_init(servo_config_t *config) {
         .period_ticks = config->period_ticks,
         .count_mode = MCPWM_TIMER_COUNT_MODE_UP
     };
-    ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &timer));
-    
+    if (mcpwm_new_timer(&timer_config, &timer) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create MCPWM timer");
+        free(srv);
+        return ESP_FAIL;
+    }
+
     mcpwm_operator_config_t operator_config = {
         .group_id = 0, // operator must be in the same group to the timer
     };
-    ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper));
+    if (mcpwm_new_operator(&operator_config, &oper) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create MCPWM operator");
+        free(srv);
+        return ESP_FAIL;
+    }
 
-    ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper, timer));
+    if (mcpwm_operator_connect_timer(oper, timer) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to connect MCPWM operator to timer");
+        free(srv);
+        return ESP_FAIL;
+    }
 
     mcpwm_comparator_config_t comparator_config = {
         .flags.update_cmp_on_tez = true,
     };
-    ESP_ERROR_CHECK(mcpwm_new_comparator(oper, &comparator_config, &cmpr));
+    if (mcpwm_new_comparator(oper, &comparator_config, &cmpr) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create MCPWM comparator");
+        free(srv);
+        return ESP_FAIL;
+    }
 
     mcpwm_generator_config_t generator_config = {
         .gen_gpio_num = config->gpio_num,
     };
-    ESP_ERROR_CHECK(mcpwm_new_generator(oper, &generator_config, &gen));
+    if (mcpwm_new_generator(oper, &generator_config, &gen) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create MCPWM generator");
+        free(srv);
+        return ESP_FAIL;
+    }
 
-    ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(cmpr, (config->max_pulsewidth_us - config->min_pulsewidth_us) / 2 + config->min_pulsewidth_us));
+    if (mcpwm_comparator_set_compare_value(cmpr, (config->max_pulsewidth_us - config->min_pulsewidth_us) / 2 + config->min_pulsewidth_us) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set MCPWM comparator value");
+        free(srv);
+        return ESP_FAIL;
+    }
 
     // go high on counter empty
-    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen,
-                                                              MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH)));
+    if (mcpwm_generator_set_action_on_timer_event(gen,
+                                                  MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH)) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set action on timer event");
+        free(srv);
+        return ESP_FAIL;
+    }
+    
     // go low on compare threshold
-    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen,
-                                                                MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, cmpr, MCPWM_GEN_ACTION_LOW)));
-        
-    ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
-    ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
+    if (mcpwm_generator_set_action_on_compare_event(gen,
+                                                    MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, cmpr, MCPWM_GEN_ACTION_LOW)) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set action on compare event");
+        free(srv);
+        return ESP_FAIL;
+    }
 
-    servo->cmpr = cmpr;
-    servo->max_degree = config->max_degree;
-    servo->min_degree = config->min_degree;
-    servo->max_pulsewidth_us = config->max_pulsewidth_us;
-    servo->min_pulsewidth_us = config->min_pulsewidth_us;
-    servo->resolution_hz = config->resolution_hz;
-    servo->period_ticks = config->period_ticks;
-    servo->gpio_num = config->gpio_num;
-    servo->angle = 0; // Initialize angle to 0
+    if (mcpwm_timer_enable(timer) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable timer");
+        free(srv);
+        return ESP_FAIL;
+    }
+    if (mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start timer");
+        free(srv);
+        return ESP_FAIL;
+    }
 
-    return (servo_handle_t)servo;
+    srv->cmpr = cmpr;
+    srv->max_degree = config->max_degree;
+    srv->min_degree = config->min_degree;
+    srv->max_pulsewidth_us = config->max_pulsewidth_us;
+    srv->min_pulsewidth_us = config->min_pulsewidth_us;
+    srv->resolution_hz = config->resolution_hz;
+    srv->period_ticks = config->period_ticks;
+    srv->gpio_num = config->gpio_num;
+    srv->angle = 0; // Initialize angle to 0
+
+    *servo = (servo_handle_t)srv;
+
+    return ESP_OK;
 }
 
 esp_err_t servo_set_angle(servo_handle_t servo, int8_t angle) {

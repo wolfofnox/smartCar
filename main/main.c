@@ -156,11 +156,11 @@ void app_main(void)
     load_nvs_calibration(); // Load NVS configuration
     
     // Servo config
-    steeringServo = servo_init(&steeringCfg);
-    topServo = servo_init(&topCfg);
+    ESP_ERROR_CHECK(servo_init(&steeringServo, &steeringCfg));
+    ESP_ERROR_CHECK(servo_init(&topServo, &topCfg));
 
     // DC motor config
-    motor = l298n_motor_init(&motorCfg);
+    ESP_ERROR_CHECK(l298n_motor_init(&motor, &motorCfg));
 
     wifi_init();
 
