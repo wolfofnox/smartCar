@@ -1,5 +1,11 @@
 #include "l298n_motor.h"
 #include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <math.h>
+
+// Forward declaration for rotary encoder ISR
+static void l298n_motor_encoder_isr(void *arg);
 
 typedef struct {
     gpio_num_t in1_pin;
@@ -13,6 +19,12 @@ typedef struct {
     uint32_t pwm_max_duty;
 
     int8_t speed;
+    
+    // Rotary encoder
+    gpio_num_t encoder_a_pin;
+    gpio_num_t encoder_b_pin;
+    uint16_t encoder_pulses_per_rev;
+    volatile int32_t encoder_count;
 } l298n_motor_t;
 
 esp_err_t l298n_motor_init(l298n_motor_handle_t *motor, const l298n_motor_config_t *config) {
@@ -35,6 +47,12 @@ esp_err_t l298n_motor_init(l298n_motor_handle_t *motor, const l298n_motor_config
 
     mtr->speed = 0;
 
+    // Rotary encoder
+    mtr->encoder_a_pin = config->encoder_a_pin;
+    mtr->encoder_b_pin = config->encoder_b_pin;
+    mtr->encoder_pulses_per_rev = config->encoder_pulses_per_rev;
+    mtr->encoder_count = 0;
+
     // Configure GPIOs for direction pins
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << mtr->in1_pin) | (1ULL << mtr->in2_pin),
@@ -48,6 +66,20 @@ esp_err_t l298n_motor_init(l298n_motor_handle_t *motor, const l298n_motor_config
         free(mtr);
         return ESP_ERR_INVALID_STATE;
     }
+
+        // Configure rotary encoder pins as inputs
+        gpio_config_t enc_conf = {
+            .pin_bit_mask = (1ULL << mtr->encoder_a_pin) | (1ULL << mtr->encoder_b_pin),
+            .mode = GPIO_MODE_INPUT,
+            .pull_up_en = GPIO_PULLUP_ENABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_POSEDGE,
+        };
+        gpio_config(&enc_conf);
+
+        // Install ISR for encoder A pin
+        gpio_install_isr_service(0);
+        gpio_isr_handler_add(mtr->encoder_a_pin, l298n_motor_encoder_isr, (void *)mtr);
 
     // Configure LEDC timer
     ledc_timer_config_t ledc_timer = {
@@ -91,6 +123,19 @@ esp_err_t l298n_motor_init(l298n_motor_handle_t *motor, const l298n_motor_config
     return ESP_OK;
 }
 
+    // Rotary encoder ISR
+    static void IRAM_ATTR l298n_motor_encoder_isr(void *arg) {
+        l298n_motor_t *mtr = (l298n_motor_t *)arg;
+        int a = gpio_get_level(mtr->encoder_a_pin);
+        int b = gpio_get_level(mtr->encoder_b_pin);
+        if (a == b) {
+            mtr->encoder_count++;
+        } else {
+            mtr->encoder_count--;
+        }
+        // Do NOT update current_angle here!
+    }
+
 esp_err_t l298n_motor_set_speed(l298n_motor_handle_t motor, int8_t speed_percent) {
     const char *TAG = "l298n_motor_set_speed";
     if (!motor) return ESP_ERR_INVALID_ARG;
@@ -133,6 +178,33 @@ int8_t l298n_motor_get_speed(l298n_motor_handle_t motor) {
     return mtr->speed;
 }
 
+// Get current angle in degrees
+float l298n_motor_get_angle(l298n_motor_handle_t motor) {
+    l298n_motor_t *mtr = (l298n_motor_t *)motor;
+    // Calculate angle from encoder_count
+    return 360.0f * ((float)mtr->encoder_count / (float)mtr->encoder_pulses_per_rev);
+}
+
+// Reset encoder count and angle
+esp_err_t l298n_motor_reset_angle(l298n_motor_handle_t motor) {
+    l298n_motor_t *mtr = (l298n_motor_t *)motor;
+    mtr->encoder_count = 0;
+    // current_angle is now calculated on demand
+    return ESP_OK;
+}
+
+// Drive to target angle (blocking, simple implementation)
+esp_err_t l298n_motor_drive_to_angle(l298n_motor_handle_t motor, float target_angle, int8_t speed_percent) {
+    float current = l298n_motor_get_angle(motor);
+    int8_t dir = (target_angle > current) ? speed_percent : -speed_percent;
+    l298n_motor_set_speed(motor, dir);
+    while (fabsf(l298n_motor_get_angle(motor) - target_angle) > 1.0f) {
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+    l298n_motor_stop(motor);
+    return ESP_OK;
+}
+
 esp_err_t l298n_motor_deinit(l298n_motor_handle_t motor) {
     const char *TAG = "l298n_motor_deinit";
     if (!motor) return ESP_ERR_INVALID_ARG;
@@ -170,6 +242,9 @@ l298n_motor_config_t *l298n_motor_get_config(l298n_motor_handle_t motor) {
     config->ledc_timer = mtr->ledc_timer;
     config->ledc_mode = mtr->ledc_mode;
     config->pwm_freq_hz = ledc_get_freq(mtr->ledc_mode, mtr->ledc_timer);
+    config->encoder_a_pin = mtr->encoder_a_pin;
+    config->encoder_b_pin = mtr->encoder_b_pin;
+    config->encoder_pulses_per_rev = mtr->encoder_pulses_per_rev;
 
     return config;
 }

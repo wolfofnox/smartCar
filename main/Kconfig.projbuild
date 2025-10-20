@@ -112,6 +112,14 @@ menu "Project Configuration"
             int "Motor enable pin"
             default 38
 
+        config PIN_MOT_ENC_A
+            int "Motor encoder A pin"
+            default 39
+
+        config PIN_MOT_ENC_B
+            int "Motor encoder B pin"
+            default 40
+
         config PIN_STEERING_SERVO
             int "Steering servo pin"
             default 48

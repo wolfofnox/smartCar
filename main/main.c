@@ -71,6 +71,9 @@ l298n_motor_config_t motorCfg = {
     .en_pin = CONFIG_PIN_MOT_EN,
     .in1_pin = CONFIG_PIN_MOT_F,
     .in2_pin = CONFIG_PIN_MOT_R,
+    .encoder_a_pin = CONFIG_PIN_MOT_ENC_A,
+    .encoder_b_pin = CONFIG_PIN_MOT_ENC_B,
+    .encoder_pulses_per_rev = 180,
     .ledc_channel = LEDC_CHANNEL_0,
     .ledc_mode = LEDC_LOW_SPEED_MODE,
     .ledc_timer = LEDC_TIMER_0,
@@ -167,6 +170,14 @@ void app_main(void)
 
     // Get boot time for uptime calculation
     bootTime = esp_timer_get_time();
+
+    while (1) {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        char buff[32];
+        snprintf(buff, sizeof(buff), "Angle: %2.2f°", l298n_motor_get_angle(motor));
+        ssd1306_clear_line(&display, 0, false);
+        ssd1306_display_text(&display, 0, buff, strlen(buff), false);
+    }
 }
 
 float get_battery_voltage() {
