@@ -646,8 +646,8 @@ CONFIG_SERVO_TIMEBASE_PERIOD=20000
 #
 # Voltage divider configuration
 #
-CONFIG_VOLTAGE_DIVIDER_R1=9985
-CONFIG_VOLTAGE_DIVIDER_R2=39400
+CONFIG_VOLTAGE_DIVIDER_R1=10000
+CONFIG_VOLTAGE_DIVIDER_R2=40000
 # end of Voltage divider configuration
 # end of Project Configuration
 
