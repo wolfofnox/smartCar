@@ -17,6 +17,7 @@
 #include "servo.h"
 #include "l298n_motor.h"
 #include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_sleep.h"
 #include "ssd1306.h"
@@ -123,25 +124,23 @@ void app_main(void)
 
     // init ADC
     adc_oneshot_unit_init_cfg_t adc_unit_cfg = {
-        .unit_id = CONFIG_ADC_UNIT_BATTERY_VOLTAGE,
-        .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
-        .ulp_mode = ADC_ULP_MODE_DISABLE
+        .unit_id = CONFIG_ADC_UNIT_BATTERY_VOLTAGE
     };
-    adc_oneshot_new_unit(&adc_unit_cfg, &adc_unit);
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&adc_unit_cfg, &adc_unit));
 
     adc_oneshot_chan_cfg_t chan_cfg = {
         .atten = ADC_ATTEN_DB_12,
-        .bitwidth = ADC_BITWIDTH_12
+        .bitwidth = ADC_BITWIDTH_DEFAULT
     };
-    adc_oneshot_config_channel(adc_unit, CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE, &chan_cfg);
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_unit, CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE, &chan_cfg));
 
     adc_cali_curve_fitting_config_t adc_cali_cfg = {
         .unit_id = CONFIG_ADC_UNIT_BATTERY_VOLTAGE,
         .chan = CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE,
-        .bitwidth = ADC_BITWIDTH_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT    ,
         .atten = ADC_ATTEN_DB_12
     };
-    adc_cali_create_scheme_curve_fitting(&adc_cali_cfg, &adc_cali);
+    ESP_ERROR_CHECK(adc_cali_create_scheme_curve_fitting(&adc_cali_cfg, &adc_cali));
 
     xTaskCreate(check_battery_task, "check_battery_task", 4096, NULL, 6, NULL);
 
@@ -171,8 +170,14 @@ void app_main(void)
 }
 
 float get_battery_voltage() {
+    int raw;
     int voltage_mv;
-    adc_oneshot_get_calibrated_result(adc_unit, adc_cali, CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE, &voltage_mv);
+
+    ESP_ERROR_CHECK(adc_oneshot_read(adc_unit, CONFIG_ADC_CHANNEL_BATTERY_VOLTAGE, &raw));
+    ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc_cali, raw, &voltage_mv));   
+
+    float voltage = voltage_mv / 1000.0 * VOLTAGE_DIVIDER_RATIO;
+    // ESP_LOGI(TAG, "Battery voltage measurement: RAW: %d, mV: %d, Voltage: %2.2fV", raw, voltage_mv, voltage);
     return voltage_mv / 1000.0 * VOLTAGE_DIVIDER_RATIO;
 }
 
@@ -181,10 +186,11 @@ void check_battery() {
     float voltage = get_battery_voltage();
     char buff[32];
     snprintf(buff, sizeof(buff), "%2.2fV", voltage);
-    ssd1306_clear_line(&display, 2, false);
     ssd1306_clear_line(&display, 3, false);
-    ssd1306_display_text(&display, 1, "Voltage:", 8, false);
-    ssd1306_display_text(&display, 2, buff, strlen(buff), false);
+    ssd1306_clear_line(&display, 5, false);
+    ssd1306_clear_line(&display, 6, false);
+    ssd1306_display_text(&display, 2, "Voltage:", 8, false);
+    ssd1306_display_text(&display, 3, buff, strlen(buff), false);
     switch (batteryType) {
         case BATTERY_WALL_ADAPTER:
             ssd1306_display_text(&display, 5, "Wall adapter", 12, false);
@@ -193,18 +199,18 @@ void check_battery() {
             ssd1306_display_text(&display, 5, "6x NiMH battery", 15, false);
             if (voltage < 1) {
                 voltage = 0;
-                ssd1306_display_text(&display, 3, "Connect battery", 15, false);
+                ssd1306_display_text(&display, 6, "Connect battery", 15, false);
                 return;
             }
-            if (voltage < 6.0) {
+            if (voltage < 5.4) {
                 ESP_LOGE(TAG, "Battery voltage critical: %fV", voltage);
                 ESP_LOGW(TAG, "Please charge the batteries!");
                 ESP_LOGW(TAG, "Shutting down...");
                 deep_sleep();
                 return;
             }
-            if (voltage < 7.0) {
-                ssd1306_display_text(&display, 3, "Battery low!", 13, true);
+            if (voltage < 6.0) {
+                ssd1306_display_text(&display, 6, "Battery low!", 13, true);
             }
         default:
             break;

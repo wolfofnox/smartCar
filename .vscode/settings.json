@@ -10,7 +10,7 @@
     "IDF_TARGET": "esp32s3"
   },
   "idf.flashType": "UART",
-  "idf.portWin": "COM5",
+  "idf.portWin": "COM8",
   "files.associations": {
     "inet.h": "c",
     "nvs_flash.h": "c",
@@ -18,6 +18,8 @@
     "esp_log.h": "c",
     "wifi.h": "c",
     "l298n_motor.h": "c",
-    "esp_err.h": "c"
+    "esp_err.h": "c",
+    "esp_wifi.h": "c",
+    "adc_oneshot.h": "c"
   }
 }
