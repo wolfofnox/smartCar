@@ -5,6 +5,10 @@ Project: ESP32-S3 SmartCar
 ## Overview
 SmartCar is a small ESP32-S3–based robotic car running on ESP-IDF. It supports differential drive, obstacle avoidance, line following, and remote control (Wi‑Fi / UART). This README covers hardware, wiring, building with ESP-IDF, flashing, calibration, and troubleshooting.
 
+# Important - WIP
+The projeczt is stil in early beta, any upadate might be braking, any existing feature might be changed or removed.
+Use this code at your own risk.
+
 ## Features
 - Differential drive with two DC motors (L298N or similar)
 - Remote control via Wi‑Fi
