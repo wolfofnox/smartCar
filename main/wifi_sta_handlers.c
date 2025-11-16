@@ -150,7 +150,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     ws_pkt.payload = calloc(1, ws_pkt.len + 1);
     ws_pkt.payload[ws_pkt.len] = 0;
 
-    ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
+    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
     if (ret != ESP_OK) {
         free(ws_pkt.payload);
         ESP_RETURN_ON_ERROR(ret, __FILE__, "Failed to receive WebSocket frame payload");
