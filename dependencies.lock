@@ -1,6 +1,6 @@
 dependencies:
   esp32-captive-wifi-manager:
-    component_hash: fc464532ab58952d233a5553b9e7e228e80dcd2697edd3e5f575e4e267c0d7eb
+    component_hash: c49110744955229ee02a0ac708d485f94225ab3d00e084a7613cf01873218252
     dependencies:
     - name: idf
       version: '>=5.5.0'
@@ -12,7 +12,7 @@ dependencies:
       git: https://github.com/theMoonlitWolf/esp32-captive-wifi-manager.git
       path: .
       type: git
-    version: e42e79bef978af725b77a6d799fbce8d1d75af65
+    version: a494416ed1e0c6b32fc9e96263dfeb38655d9e40
   espressif/cmake_utilities:
     component_hash: 05165f30922b422b4b90c08845e6d449329b97370fbd06309803d8cb539d79e3
     dependencies:
