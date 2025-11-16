@@ -1,4 +1,18 @@
 dependencies:
+  esp32-captive-wifi-manager:
+    component_hash: fc464532ab58952d233a5553b9e7e228e80dcd2697edd3e5f575e4e267c0d7eb
+    dependencies:
+    - name: idf
+      version: '>=5.5.0'
+    - name: espressif/mdns
+      version: ^1.8.2
+    - name: espressif/led_indicator
+      version: ^1.1.1
+    source:
+      git: https://github.com/theMoonlitWolf/esp32-captive-wifi-manager.git
+      path: .
+      type: git
+    version: e42e79bef978af725b77a6d799fbce8d1d75af65
   espressif/cmake_utilities:
     component_hash: 05165f30922b422b4b90c08845e6d449329b97370fbd06309803d8cb539d79e3
     dependencies:
@@ -38,7 +52,7 @@ dependencies:
       type: service
     version: 2.5.5
   espressif/mdns:
-    component_hash: 3ec0af5f6bce310512e90f482388d21cc7c0e99668172d2f895356165fc6f7c5
+    component_hash: 5c148bc0996305bcf111c465bba021a8155d4247b0d9353c39da9b44a91ca381
     dependencies:
     - name: idf
       require: private
@@ -46,15 +60,16 @@ dependencies:
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 1.8.2
+    version: 1.9.0
   idf:
     source:
       type: idf
     version: 5.5.0
 direct_dependencies:
+- esp32-captive-wifi-manager
 - espressif/led_indicator
 - espressif/mdns
 - idf
-manifest_hash: d38093c7dedb188516dd607b51e019fd242f3ac45f6d9cc004b8863186ba8de1
+manifest_hash: 74de11db65c74aba1e07518d83d3c9ff38a5d7372dc9bb649713d713f5a3e0b5
 target: esp32s3
 version: 2.0.0

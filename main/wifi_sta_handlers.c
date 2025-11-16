@@ -48,7 +48,6 @@ void set_handlers() {
         .uri = "/ws",
         .method = HTTP_GET,
         .handler = websocket_handler,
-        .user_ctx = NULL,
         .is_websocket = true,
         .handle_ws_control_frames = true
     };
@@ -57,16 +56,14 @@ void set_handlers() {
     httpd_uri_t calibrate_post_uri = {
         .uri = "/calibrate",
         .method = HTTP_POST,
-        .handler = calibrate_post_handler,
-        .user_ctx = NULL
+        .handler = calibrate_post_handler
     };
     wifi_register_http_handler(&calibrate_post_uri);
 
     httpd_uri_t status_json_uri = {
         .uri = "/status.json",
         .method = HTTP_GET,
-        .handler = status_json_handler,
-        .user_ctx = NULL
+        .handler = status_json_handler
     };
     wifi_register_http_handler(&status_json_uri);
 }
@@ -148,8 +145,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
     ws_pkt.payload = NULL;
 
-    esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 0);
-    if (ret != ESP_OK) return ret;
+    ESP_RETURN_ON_ERROR(httpd_ws_recv_frame(req, &ws_pkt, 0);, __FILE__, "Failed to receive WebSocket frame");
 
     ws_pkt.payload = calloc(1, ws_pkt.len + 1);
     ws_pkt.payload[ws_pkt.len] = 0;
@@ -157,7 +153,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
     if (ret != ESP_OK) {
         free(ws_pkt.payload);
-        return ret;
+        ESP_RETURN_ON_ERROR(ret, __FILE__, "Failed to receive WebSocket frame payload");
     }
 
     ws_watchdog_start(); // Start the watchdog timer
