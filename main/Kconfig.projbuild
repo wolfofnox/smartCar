@@ -76,22 +76,6 @@ menu "Project Configuration"
             int "3.3V bus enable pin, 0 if board does not have one"
             default 47
 
-        config PIN_LED
-            int "On-board RGB LED pin for status indication"
-            default 45
-
-        config PIN_SPI_MOSI
-            int "SPI MOSI pin"
-            default 11
-
-        config PIN_SPI_MISO
-            int "SPI MISO pin"
-            default 13
-
-        config PIN_SPI_CLK
-            int "SPI CLK pin"
-            default 12
-
         config PIN_I2C_SDA
             int "I2C SDA pin"
             default 42
