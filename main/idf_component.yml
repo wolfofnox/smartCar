@@ -17,6 +17,6 @@ dependencies:
   espressif/mdns: ^1.8.2
   espressif/led_indicator: ^1.1.1
   esp32-captive-wifi-manager:
-    git: https://github.com/theMoonlitWolf/esp32-captive-wifi-manager.git
+    git: https://github.com/wolfofnox/esp32-captive-wifi-manager.git
     path: "."
     version: v0.2.1
