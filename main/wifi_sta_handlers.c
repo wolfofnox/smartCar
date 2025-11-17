@@ -145,7 +145,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
     ws_pkt.payload = NULL;
 
-    ESP_RETURN_ON_ERROR(httpd_ws_recv_frame(req, &ws_pkt, 0);, __FILE__, "Failed to receive WebSocket frame");
+    ESP_RETURN_ON_ERROR(httpd_ws_recv_frame(req, &ws_pkt, 0), __FILE__, "Failed to receive WebSocket frame");
 
     ws_pkt.payload = calloc(1, ws_pkt.len + 1);
     ws_pkt.payload[ws_pkt.len] = 0;
