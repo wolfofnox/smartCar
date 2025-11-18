@@ -158,13 +158,13 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
     ws_pkt.payload = NULL;
 
-    ESP_RETURN_ON_ERROR(httpd_ws_recv_frame(req, &ws_pkt, 0), __FILE__, "Failed to receive WebSocket frame");
+    ESP_RETURN_ON_ERROR(httpd_ws_recv_frame(req, &ws_pkt, 0), TAG_WS, "Failed to receive WebSocket frame");
 
     ws_watchdog_start(); // Start the watchdog timer
 
     if (ws_pkt.type == HTTPD_WS_TYPE_BINARY && ws_pkt.len == 1) {
         ws_pkt.payload = malloc(1);
-        ret = httpd_ws_recv_frame(req, &ws_pkt, 1);
+        esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 1);
         if (ret != ESP_OK) {
             free(ws_pkt.payload);
             ESP_RETURN_ON_ERROR(ret, TAG_WS, "Failed to receive ws event packet");
@@ -197,7 +197,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     // Check if this is a binary control packet with a numerical value
     if (ws_pkt.type == HTTPD_WS_TYPE_BINARY && ws_pkt.len == sizeof(ws_control_packet_t)) {
         ws_pkt.payload = malloc(ws_pkt.len);
-        ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
+        esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
         if (ret != ESP_OK) {
             free(ws_pkt.payload);
             ESP_RETURN_ON_ERROR(ret, TAG_WS, "Failed to receive ws control packet");
@@ -279,7 +279,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
     esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
     if (ret != ESP_OK) {
         free(ws_pkt.payload);
-        ESP_RETURN_ON_ERROR(ret, __FILE__, "Failed to receive WebSocket frame payload");
+        ESP_RETURN_ON_ERROR(ret, TAG_WS, "Failed to receive WebSocket frame payload");
     }
 
     ESP_LOGV(TAG_WS, "Received text payload: %s", (char *)ws_pkt.payload);
