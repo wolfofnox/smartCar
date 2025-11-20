@@ -179,7 +179,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
                 servo_set_angle(steeringServo, 0);
                 servo_set_angle(topServo, 0);
                 l298n_motor_set_speed(motor, 0);
-                ESP_LOGV("Web socket", "Emergency stop activated");
+                ESP_LOGV(TAG_WS, "Emergency stop activated");
                 break;
             case EVENT_REVERT_SETTINGS:
                 ESP_LOGV(TAG_WS, "Reverting to default settings");
@@ -188,7 +188,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
                 l298n_motor_set_speed(motor, 0); // Stop the motor
                 break;
             default:
-                ESP_LOGW("Web socket", "Unknown event id: 0x%2X", event_id);
+                ESP_LOGW(TAG_WS, "Unknown event id: 0x%2X", event_id);
         }
         free(ws_pkt.payload);
         return ESP_OK;
@@ -254,7 +254,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
                     ESP_LOGV(TAG_WS, "Set WebSocket timeout to %lu ms", ws_watchdog_timeout);
                     ws_watchdog_start(); // Restart the watchdog with the new timeout
                 } else {
-                    ESP_LOGW(TAG_WS, "Invalid ws timeout value recieved: %d", packet->value);
+                    ESP_LOGW(TAG_WS, "Invalid ws timeout value received: %d", packet->value);
                 }
                 break;
             default:

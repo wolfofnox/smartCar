@@ -86,7 +86,7 @@ function sendWSBinaryControl(type, value) {
         ws.send(buffer);
         console.log('Sent binary message: ', { type, value }, 'buffer: ', buffer);
     } else {
-        console.warn('WebSocket not open, message not sent: ', buffer);
+        console.warn('WebSocket not open, message not sent: ', { type, value } );
     }
 }
 
@@ -98,7 +98,7 @@ function sendWSEvent(eventType) {
         ws.send(buffer);
         console.log('Sent event message: ', eventType, 'buffer: ', buffer);
     } else {
-        console.warn('WebSocket not open, message not sent: ', buffer);
+        console.warn('WebSocket not open, message not sent: ', eventType);
     }
 }
 

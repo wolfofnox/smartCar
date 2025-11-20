@@ -92,7 +92,7 @@
       if (e.data.length === 1) {
         switch (e.data)
         {
-          case EVENT_TIMEOUT:
+          case WS_event.EVENT_TIMEOUT:
             fetchCalibration();
             message('warn', 'WebSocket timeout, calibration reverted', 3000);
             break;
