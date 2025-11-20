@@ -80,7 +80,7 @@
     </div>
     <div class="button-group">
       <button onclick="saveCalibration()"> Save </button>
-      <button onclick="sendWSMessage(JSON.stringify({event: 'revert'})); fetchCalibration();"">Revert</button>
+      <button onclick="sendWSEvent(WS_event.EVENT_REVERT_SETTINGS); fetchCalibration();">Revert</button>
     </div>
   </div>
   <footer id="status"></footer>
@@ -89,10 +89,14 @@
   <script>
     let lastSend = Date.now();
     ws.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      if (data.event === 'ws_timeout') {
-        fetchCalibration();
-        message('warn', 'WebSocket timeout, calibration reverted', 3000);
+      if (e.data.length === 1) {
+        switch (e.data)
+        {
+          case WS_event.EVENT_TIMEOUT:
+            fetchCalibration();
+            message('warn', 'WebSocket timeout, calibration reverted', 3000);
+            break;
+        }
       }
     }
 
@@ -106,6 +110,7 @@
       centerAngv.textContent = centerAng.value;
       Angv.textContent = Ang.value;
     }
+
     function fetchCalibration() {
       fetch('/status.json').then(r=>r.json()).then(data=>{
         minPWM.value = data.steeringMinPWM;
@@ -116,18 +121,15 @@
         updateDisplay();
       });
     }
+
     function sendServo(angle, sendPWM = false) {
-      let msg = {};
+      sendWSBinaryControl(WS_value.CONTROL_STEERING, Number(angle));
       if (sendPWM) {
-        msg = JSON.stringify({
-          steering: Number(angle),
-          steering_pulsewidth_limits: [Number(minPWM.value), Number(maxPWM.value)]
-        });
-      } else {
-        msg = JSON.stringify({steering: Number(angle)});
+        sendWSBinaryControl(WS_value.CONTROL_STEERING_MIN_PULSEWIDTH, Number(minPWM.value));
+        sendWSBinaryControl(WS_value.CONTROL_STEERING_MAX_PULSEWIDTH, Number(maxPWM.value));
       }
-      sendWSMessage(msg);
     }
+
     function saveCalibration() {
       const payload = {
         steering_pulsewith_limits: [ Number(minPWM.value), Number(maxPWM.value)],
@@ -142,6 +144,7 @@
         message('info', msg, 2000);
       });
     }
+
     minPWM.addEventListener('input', () => {
       if (Number(maxPWM.value) < Number(minPWM.value)) maxPWM.value = minPWM.value;
       updateDisplay();
@@ -150,6 +153,7 @@
         lastSend = Date.now();
       }
     });
+
     maxPWM.addEventListener('input', () => {
       if (Number(minPWM.value) > Number(maxPWM.value)) minPWM.value = maxPWM.value;
       updateDisplay();
@@ -158,6 +162,7 @@
         lastSend = Date.now();
       }
     });
+
     minAng.addEventListener('input', () => {
       if (Number(maxAng.value) < Number(minAng.value)) maxAng.value = minAng.value;
       updateDisplay();
@@ -166,6 +171,7 @@
         lastSend = Date.now();
       }
     });
+
     maxAng.addEventListener('input', () => {
       if (Number(minAng.value) > Number(maxAng.value)) minAng.value = maxAng.value;
       updateDisplay();
@@ -174,6 +180,7 @@
         lastSend = Date.now();
       }
     });
+
     centerAng.addEventListener('input', () => {
       updateDisplay();
       if (centerAngcb.checked && Date.now() - lastSend > 500) {
@@ -181,6 +188,7 @@
         lastSend = Date.now();
       }
     });
+
     Ang.addEventListener('input', () => {
       updateDisplay();
       if (Angcb.checked && Date.now() - lastSend > 500) {
@@ -188,9 +196,10 @@
         lastSend = Date.now();
       }
     });
+
     function sendWSNewTimeout(timeout) {
       if (ws.readyState === WebSocket.OPEN) {
-        setTimeout(() => sendWSMessage(JSON.stringify({timeout: timeout})), 100);
+        setTimeout(() => sendWSBinaryControl(WS_value.CONFIG_WS_TIMEOUT, timeout), 100);
       } else {
         setTimeout(() => sendWSNewTimeout(timeout), 100);
       }

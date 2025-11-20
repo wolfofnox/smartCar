@@ -54,9 +54,10 @@
   <script src="ws.js"></script>
   <script>
     function sendSliderValue(id, value) {
-      const msg = JSON.stringify({ [id]: Number(value * 2) });
-      sendWSMessage(msg);
-      document.getElementById(id + 'v').textContent = value*2;
+      const val = Number(value * 2);
+      const type = id === 'speed' ? WS_value.CONTROL_SPEED : id === 'steering' ? WS_value.CONTROL_STEERING : id === 'top' ? WS_value.CONTROL_TOP_SERVO : null;
+      sendWSBinaryControl(type, val);
+      document.getElementById(id + 'v').textContent = val;
     }
 
     ['speed', 'steering', 'top'].forEach(id => {
@@ -65,9 +66,8 @@
     });
 
     document.getElementById('estop').addEventListener('click', () => {
-      const msg = JSON.stringify({ event: 'estop' });
       message('warn', 'Emergency stop activated', 1000);
-      sendWSMessage(msg);
+      sendWSEvent(WS_event.EVENT_ESTOP);
       ['speed', 'steering', 'top'].forEach(id => {
         document.getElementById(id).value = 0;
         document.getElementById(id + 'v').textContent = 0;
