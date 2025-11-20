@@ -103,7 +103,8 @@ void app_main(void)
     // Set log level
     esp_log_level_set("*", CONFIG_LOG_LEVEL_GLOBAL);
     esp_log_level_set(TAG, CONFIG_LOG_LEVEL_SOURCE);
-    esp_log_level_set("Web socket", CONFIG_LOG_LEVEL_SOURCE);
+    esp_log_level_set("WebSocket", CONFIG_LOG_LEVEL_SOURCE);
+    esp_log_level_set("WiFi Handlers", CONFIG_LOG_LEVEL_SOURCE);
     ESP_LOGI(TAG, "START %s from %s", __FILE__, __DATE__);
     ESP_LOGI(TAG, "Setting up...");
 

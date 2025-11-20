@@ -123,10 +123,10 @@
     }
 
     function sendServo(angle, sendPWM = false) {
-      sendWSValue(WS_value.CONTROL_STEERING, Number(angle));
+      sendWSBinaryControl(WS_value.CONTROL_STEERING, Number(angle));
       if (sendPWM) {
-        sendWSValue(WS_value.CONTROL_STEERING_MIN_PULSEWIDTH, Number(minPWM.value));
-        sendWSValue(WS_value.CONTROL_STEERING_MAX_PULSEWIDTH, Number(maxPWM.value));
+        sendWSBinaryControl(WS_value.CONTROL_STEERING_MIN_PULSEWIDTH, Number(minPWM.value));
+        sendWSBinaryControl(WS_value.CONTROL_STEERING_MAX_PULSEWIDTH, Number(maxPWM.value));
       }
     }
 
@@ -199,7 +199,7 @@
 
     function sendWSNewTimeout(timeout) {
       if (ws.readyState === WebSocket.OPEN) {
-        setTimeout(() => sendWSValue(WS_value.CONFIG_WS_TIMEOUT, timeout), 100);
+        setTimeout(() => sendWSBinaryControl(WS_value.CONFIG_WS_TIMEOUT, timeout), 100);
       } else {
         setTimeout(() => sendWSNewTimeout(timeout), 100);
       }

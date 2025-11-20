@@ -25,7 +25,7 @@ typedef enum {
 
 // Binary control packet structure
 typedef struct __attribute__((packed)) {
-    ws_value_type_t type;  // Control type (1 byte)
+    uint8_t type;  // Control type (1 byte)
     int16_t value;       // Control value (2 bytes)
 } ws_control_packet_t;
 

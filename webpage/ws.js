@@ -25,11 +25,48 @@ function setupWebSocket() {
     }
     message('info', 'Setting up WebSocket connection...', 5000);
     ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.binaryType = 'arraybuffer';
     ws.onopen = () => {
         console.log('WebSocket connected');
         message('info', 'WebSocket connected', 3000);
     };
-    ws.onmessage = (event) => console.log('Message received:', event.data);
+    ws.onmessage = async (event) => {
+        try {
+            // Handle binary messages (Blob or ArrayBuffer)
+            if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+                const buffer = event.data instanceof Blob ? await event.data.arrayBuffer() : event.data;
+                const view = new DataView(buffer);
+
+                // Detect message type based on size
+                if (view.byteLength === 1) {
+                    // Event message (1 byte header only)
+                    const eventType = view.getUint8(0);
+                    console.log('Event received:', eventType);
+                    if (window.handleWSEvent) {
+                        window.handleWSEvent(eventType);
+                    }
+                } else if (view.byteLength >= 3) {
+                    // Value message (1 byte header + 2 bytes data)
+                    const type = view.getUint8(0);
+                    const value = view.getInt16(1, true); // little-endian
+                    console.log('Binary message received:', { type, value });
+                    if (window.handleWSBinaryData) {
+                        window.handleWSBinaryData(type, value);
+                    }
+                } else {
+                    console.warn('Invalid binary message size:', view.byteLength);
+                }
+            } else {
+                // Text message
+                console.log('Text message received:', event.data);
+                if (window.handleWSText) {
+                    window.handleWSText(event.data);
+                }
+            }
+        } catch (e) {
+            console.error('Error processing incoming message:', e);
+        }
+    };
     ws.onerror = (error) => {
         console.error('WebSocket error:', error); 
         message('error', 'WebSocket error: ' + error, 5000); 
@@ -46,11 +83,10 @@ function sendWSBinaryControl(type, value) {
         const view = new DataView(buffer);
         view.setUint8(0, type);
         view.setInt16(1, value, true); // true for little-endian
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(buffer);
-        } else {
-            console.warn('WebSocket not open, message not sent: ', buffer);
-        }
+        ws.send(buffer);
+        console.log('Sent binary message: ', { type, value }, 'buffer: ', buffer);
+    } else {
+        console.warn('WebSocket not open, message not sent: ', buffer);
     }
 }
 
@@ -60,13 +96,20 @@ function sendWSEvent(eventType) {
         const view = new DataView(buffer);
         view.setUint8(0, eventType);
         ws.send(buffer);
+        console.log('Sent event message: ', eventType, 'buffer: ', buffer);
+    } else {
+        console.warn('WebSocket not open, message not sent: ', buffer);
     }
 }
 
 function sendWSMessage(msg) {
     console.log('Sending message ', msg);
     if (ws.readyState === WebSocket.OPEN) {
-        ws.send(msg);
+        if (typeof msg === 'object') {
+            ws.send(JSON.stringify(msg));
+        } else {
+            ws.send(msg);
+        }
     } else {
         console.warn('WebSocket not open, message not sent: ', msg);
     }

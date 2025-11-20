@@ -56,7 +56,7 @@
     function sendSliderValue(id, value) {
       const val = Number(value * 2);
       const type = id === 'speed' ? WS_value.CONTROL_SPEED : id === 'steering' ? WS_value.CONTROL_STEERING : id === 'top' ? WS_value.CONTROL_TOP_SERVO : null;
-      sendWSMessage({ type, value: val });
+      sendWSBinaryControl(type, val);
       document.getElementById(id + 'v').textContent = val;
     }
 
