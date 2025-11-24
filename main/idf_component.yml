@@ -20,3 +20,7 @@ dependencies:
     git: https://github.com/wolfofnox/esp32-captive-wifi-manager.git
     path: "."
     version: v0.2.1
+  BDC-motor-PID:
+    git: https://github.com/wolfofnox/BDC-motor-PID.git
+    path: "."
+    version: v0.1.0

@@ -15,7 +15,7 @@
 #include "wifi_sta_handlers.h"
 
 #include "servo.h"
-#include "l298n_motor.h"
+#include "BDC_motor_PID.h"
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -46,7 +46,7 @@ SSD1306_t display;
 
 servo_handle_t steeringServo = NULL; ///< Handle for the steering servo
 servo_handle_t topServo = NULL; ///< Handle for the throttle servo
-l298n_motor_handle_t motor = NULL;
+BDC_motor_PID_handle_t motor;
 
 // nvs setting variables
 servo_config_t steeringCfg = {
@@ -66,18 +66,6 @@ servo_config_t topCfg = {
     .max_degree = 90,
     .period_ticks = 20000,
     .resolution_hz = 1000000,
-};
-l298n_motor_config_t motorCfg = {
-    .en_pin = CONFIG_PIN_MOT_EN,
-    .in1_pin = CONFIG_PIN_MOT_F,
-    .in2_pin = CONFIG_PIN_MOT_R,
-    .encoder_a_pin = CONFIG_PIN_MOT_ENC_A,
-    .encoder_b_pin = CONFIG_PIN_MOT_ENC_B,
-    .encoder_pulses_per_rev = 180,
-    .ledc_channel = LEDC_CHANNEL_0,
-    .ledc_mode = LEDC_LOW_SPEED_MODE,
-    .ledc_timer = LEDC_TIMER_0,
-    .pwm_freq_hz = 5000
 };
 battery_type_t batteryType = BATTERY_6xNiMH; ///< Type of battery used in the car
 
@@ -163,7 +151,15 @@ void app_main(void)
     ESP_ERROR_CHECK(servo_init(&topServo, &topCfg));
 
     // DC motor config
-    ESP_ERROR_CHECK(l298n_motor_init(&motor, &motorCfg));
+    BDC_motor_PID_cfg_t motor_config = BDC_MOTOR_PID_DEFAULT_CONFIG;
+    motor_config.pwm_a_or_enable_pwm.pwm_pin = CONFIG_PIN_MOT_EN;
+    motor_config.pin_a_or_direction = CONFIG_PIN_MOT_F;
+    motor_config.pin_b = CONFIG_PIN_MOT_R;
+    motor_config.enc_a = CONFIG_PIN_MOT_ENC_A;
+    motor_config.enc_b = CONFIG_PIN_MOT_ENC_B;
+    motor_config.enc_pulses_per_rev = 180;
+
+    ESP_ERROR_CHECK(BDC_motor_PID_init(&motor, &motor_config));
 
     wifi_init();
 
@@ -175,7 +171,7 @@ void app_main(void)
     while (1) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
         char buff[32];
-        snprintf(buff, sizeof(buff), "Angle: %2.2f°", l298n_motor_get_angle(motor));
+        snprintf(buff, sizeof(buff), "Angle: %2.2f°", BDC_motor_PID_get_angle(motor));
         ssd1306_clear_line(&display, 0, false);
         ssd1306_display_text(&display, 0, buff, strlen(buff), false);
     }
@@ -232,7 +228,7 @@ void check_battery() {
 void deep_sleep() {
     servo_deinit(steeringServo);
     servo_deinit(topServo);
-    l298n_motor_deinit(motor);
+    BDC_motor_PID_deinit(motor);
     vTaskDelay(1000/portTICK_PERIOD_MS);
     gpio_set_level(CONFIG_PIN_3V3_BUS, 0);
     esp_deep_sleep_start();
@@ -259,8 +255,6 @@ void load_nvs_calibration() {
         nvs_get_blob(nvs_handle, "steering_cfg", &steeringCfg, &len);
         len = sizeof(topCfg);
         nvs_get_blob(nvs_handle, "top_cfg", &topCfg, &len);
-        len = sizeof(motorCfg);
-        nvs_get_blob(nvs_handle, "motor_cfg", &motorCfg, &len);
         nvs_close(nvs_handle);
     } else {
         ESP_LOGE(__FILE__, "Failed to open NVS for saving config: %s", esp_err_to_name(err));
@@ -273,7 +267,6 @@ void save_nvs_calibration() {
     if (err == ESP_OK) {
         nvs_set_blob(nvs_handle, "steering_cfg", &steeringCfg, sizeof(steeringCfg));
         nvs_set_blob(nvs_handle, "top_cfg", &topCfg, sizeof(topCfg));
-        nvs_set_blob(nvs_handle, "motor_cfg", &motorCfg, sizeof(motorCfg));
         nvs_commit(nvs_handle);
         nvs_close(nvs_handle);
         ESP_LOGI(__FILE__, "NVS calibration saved successfully");

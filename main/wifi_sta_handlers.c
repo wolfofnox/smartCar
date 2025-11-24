@@ -2,7 +2,7 @@
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "Wifi.h"
-#include "l298n_motor.h"
+#include "BDC_motor_PID.h"
 #include "servo.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
@@ -22,11 +22,10 @@ extern httpd_handle_t server;
 
 extern servo_handle_t steeringServo;
 extern servo_handle_t topServo;
-extern l298n_motor_handle_t motor;
+extern BDC_motor_PID_handle_t motor;
 
 extern servo_config_t steeringCfg; ///< Steering servo configuration
 extern servo_config_t topCfg; ///< Top servo configuration
-extern l298n_motor_config_t motorCfg; ///< Motor configuration
 
 extern void save_nvs_calibration(); ///< Save configuration to NVS
 
@@ -91,7 +90,7 @@ esp_err_t status_json_handler(httpd_req_t *req) {
     int total_heap = heap_caps_get_total_size(MALLOC_CAP_DEFAULT);
     snprintf(json, sizeof(json), "{\"uptime\": %lli, \"freeHeap\": %d, \"totalHeap\": %d, \"version\": \"%s\", \"speed\": %d, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d}",
              (esp_timer_get_time() - bootTime) / 1000, free_heap, total_heap, CONFIG_VERSION,
-            servo_get_angle(steeringServo), servo_get_angle(topServo), l298n_motor_get_speed(motor),
+            servo_get_angle(steeringServo), servo_get_angle(topServo), BDC_motor_PID_get_speed(motor),
             steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us, steeringCfg.min_degree, steeringCfg.max_degree,
             topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us, topCfg.min_degree, topCfg.max_degree);
     ESP_LOGD(TAG, "JSON data requested: %s", json);
@@ -178,14 +177,14 @@ esp_err_t websocket_handler(httpd_req_t *req) {
             case EVENT_ESTOP:
                 servo_set_angle(steeringServo, 0);
                 servo_set_angle(topServo, 0);
-                l298n_motor_set_speed(motor, 0);
+                BDC_motor_PID_set_speed(motor, 0);
                 ESP_LOGV(TAG_WS, "Emergency stop activated");
                 break;
             case EVENT_REVERT_SETTINGS:
                 ESP_LOGV(TAG_WS, "Reverting to default settings");
                 servo_set_nim_max_pulsewidth(steeringServo, steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us);
                 servo_set_nim_max_pulsewidth(topServo, topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us);
-                l298n_motor_set_speed(motor, 0); // Stop the motor
+                BDC_motor_PID_set_speed(motor, 0); // Stop the motor
                 break;
             default:
                 ESP_LOGW(TAG_WS, "Unknown event id: 0x%2X", event_id);
@@ -205,7 +204,7 @@ esp_err_t websocket_handler(httpd_req_t *req) {
         ws_control_packet_t *packet = (ws_control_packet_t *)ws_pkt.payload;
         switch(packet->type) {
             case CONTROL_SPEED:
-                l298n_motor_set_speed(motor, packet->value);
+                BDC_motor_PID_set_speed(motor, packet->value);
                 ESP_LOGV(TAG_WS, "Set motor speed to %d", packet->value);
                 break;
             case CONTROL_STEERING:
