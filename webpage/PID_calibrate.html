@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Servo Calibration</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="nav"></div>
+  <div class="card">
+    <h1>PID calibration</h1>
+    <div class="message"></div>
+    <div class="select-row">PID controler:
+        <select id="pidControler" title="Select PID controller type">
+            <option value="speed">Speed</option>
+            <option value="angle">Angle</option>
+        </select>
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="P">Kp koeficient:</label>
+        <span class="value" id="Pv">0</span>
+      </div>
+      <input type="range" id="P" min="0" max="1000" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="I">Ki koeficient:</label>
+        <span class="value" id="Iv">0</span>
+      </div>
+      <input type="range" id="I" min="0" max="1000" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="D">Kd koeficient:</label>
+        <span class="value" id="Dv">0</span>
+      </div>
+      <input type="range" id="D" min="0" max="1000" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="d_alpha">Derivate smootingg coefficient:</label>
+        <span class="value" id="d_alphav">0</span>
+      </div>
+      <input type="range" id="d_alpha" min="0" max="100" step="1">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label-row">
+        <label for="I_deadband">Interator deadband:</label>
+        <span class="value" id="I_deadbandv">0</span>
+      </div>
+      <input type="range" id="I_deadband" min="0" max="1000" step="1">
+    </div>
+    <div class="slider-label-row">
+        <label for="speed">Speed:</label>
+        <input type="range" id="speed" min="-100" max="100" step="1" value="0">
+        <span class="value" id="speedv">0</span>
+        <button type="button" id="stopbtn">Stop</button>
+    </div>
+    <div class="button-group">
+      <button onclick="saveCalibration()"> Save </button>
+      <button onclick="sendWSEvent(WS_event.EVENT_REVERT_SETTINGS); fetchCalibration();">Revert</button>
+    </div>
+  </div>
+  <footer id="status"></footer>
+  <script src="common.js"></script>
+  <script src="ws.js"></script>
+  <script>
+    let lastSend = Date.now();
+    ws.onmessage = (e) => {
+      if (e.data.length === 1) {
+        switch (e.data)
+        {
+          case WS_event.EVENT_TIMEOUT:
+            fetchCalibration();
+            message('warn', 'WebSocket timeout, calibration reverted', 3000);
+            break;
+        }
+      }
+    }
+
+    function updateDisplay() {
+      Pv.textContent = P.value;
+      Iv.textContent = I.value;
+      Dv.textContent = D.value;
+      d_alphav.textContent = d_alpha.value;
+      I_deadbandv.textContent = I_deadband.value;
+      speedv.textContent = speed.value;
+    }
+
+    function fetchCalibration() {
+      fetch('/status.json').then(r=>r.json()).then(data=>{
+        // populate values from status.json (server returns both speed and angle PID values)
+        const controller = pidControler.value; // 'speed' or 'angle'
+        if (controller === 'angle') {
+          P.value = data.pidAngleKp || 0;
+          I.value = data.pidAngleKi || 0;
+          D.value = data.pidAngleKd || 0;
+          d_alpha.value = data.pidAngleDalpha || 0;
+          I_deadband.value = Math.round(data.pidAngleIdeadband || 0);
+        } else {
+          P.value = data.pidSpeedKp || 0;
+          I.value = data.pidSpeedKi || 0;
+          D.value = data.pidSpeedKd || 0;
+          d_alpha.value = data.pidSpeedDalpha || 0;
+          I_deadband.value = Math.round(data.pidSpeedIdeadband || 0);
+        }
+        speed.value = Math.round(data.speed || 0);
+        updateDisplay();
+      }).catch(()=>{
+        message('error','Failed to fetch status',2000);
+      });
+    }
+
+    // Re-fetch when user switches controller, when tab becomes visible, or window gains focus
+    pidControler.addEventListener('change', () => {
+      fetchCalibration();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchCalibration();
+    });
+    window.addEventListener('focus', () => fetchCalibration());
+
+    function sendCalibration() {
+      const controller = pidControler.value; // 'speed' or 'angle'
+      if (controller === 'speed') {
+        sendWSBinaryControl(WS_value.CONFIG_PID_SPEED_KP, Number(P.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_SPEED_KI, Number(I.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_SPEED_KD, Number(D.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_SPEED_D_ALPHA, Number(d_alpha.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_SPEED_I_DEADBAND, Number(I_deadband.value));
+      } else {
+        sendWSBinaryControl(WS_value.CONFIG_PID_ANGLE_KP, Number(P.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_ANGLE_KI, Number(I.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_ANGLE_KD, Number(D.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_ANGLE_D_ALPHA, Number(d_alpha.value));
+        sendWSBinaryControl(WS_value.CONFIG_PID_ANGLE_I_DEADBAND, Number(I_deadband.value));
+      }
+    }
+
+    function saveCalibration() {
+      // Send current PID values via WebSocket, then request persist to NVS.
+      sendCalibration();
+      // If WS open, request a save; otherwise fallback to POST
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        setTimeout(() => {
+          sendWSEvent(WS_event.EVENT_SAVE_SETTINGS);
+          message('info', 'Save requested (WS)', 2000);
+        }, 150);
+      } else {
+        const payload = {
+          pid_controller: pidControler.value,
+          kp: Number(P.value),
+          ki: Number(I.value),
+          kd: Number(D.value),
+          d_alpha: Number(d_alpha.value),
+          integrator_deadband: Number(I_deadband.value)
+        };
+        fetch('/calibrate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        }).then(r=>r.text()).then(msg=>{
+          message('info', msg, 2000);
+        }).catch(()=>message('error','Save failed',2000));
+      }
+    }
+
+    function mapTypeForParam(param) {
+      const controller = pidControler.value; // 'speed' or 'angle'
+      const isSpeed = controller === 'speed';
+      switch (param) {
+        case 'P': return isSpeed ? WS_value.CONFIG_PID_SPEED_KP : WS_value.CONFIG_PID_ANGLE_KP;
+        case 'I': return isSpeed ? WS_value.CONFIG_PID_SPEED_KI : WS_value.CONFIG_PID_ANGLE_KI;
+        case 'D': return isSpeed ? WS_value.CONFIG_PID_SPEED_KD : WS_value.CONFIG_PID_ANGLE_KD;
+        case 'd_alpha': return isSpeed ? WS_value.CONFIG_PID_SPEED_D_ALPHA : WS_value.CONFIG_PID_ANGLE_D_ALPHA;
+        case 'I_deadband': return isSpeed ? WS_value.CONFIG_PID_SPEED_I_DEADBAND : WS_value.CONFIG_PID_ANGLE_I_DEADBAND;
+        default: return null;
+      }
+    }
+
+    const sendDebounceMs = 120;
+
+    P.addEventListener('input', () => {
+      updateDisplay();
+      if (Date.now() - lastSend > sendDebounceMs) {
+        const t = mapTypeForParam('P'); if (t !== null) sendWSBinaryControl(t, Number(P.value));
+        lastSend = Date.now();
+      }
+    });
+
+    I.addEventListener('input', () => {
+      updateDisplay();
+      if (Date.now() - lastSend > sendDebounceMs) {
+        const t = mapTypeForParam('I'); if (t !== null) sendWSBinaryControl(t, Number(I.value));
+        lastSend = Date.now();
+      }
+    });
+
+    D.addEventListener('input', () => {
+      updateDisplay();
+      if (Date.now() - lastSend > sendDebounceMs) {
+        const t = mapTypeForParam('D'); if (t !== null) sendWSBinaryControl(t, Number(D.value));
+        lastSend = Date.now();
+      }
+    });
+
+    d_alpha.addEventListener('input', () => {
+      updateDisplay();
+      if (Date.now() - lastSend > sendDebounceMs) {
+        const t = mapTypeForParam('d_alpha'); if (t !== null) sendWSBinaryControl(t, Number(d_alpha.value));
+        lastSend = Date.now();
+      }
+    });
+
+    I_deadband.addEventListener('input', () => {
+      updateDisplay();
+      if (Date.now() - lastSend > sendDebounceMs) {
+        const t = mapTypeForParam('I_deadband'); if (t !== null) sendWSBinaryControl(t, Number(I_deadband.value));
+        lastSend = Date.now();
+      }
+    });
+
+    speed.addEventListener('input', () => {
+      updateDisplay();
+      if (Date.now() - lastSend > 200) {
+        sendWSBinaryControl(WS_value.CONTROL_SPEED, Number(speed.value));
+        lastSend = Date.now();
+      }
+    });
+
+    stopbtn.addEventListener('click', () => {
+      speed.value = 0;
+      updateDisplay();
+      sendWSEvent(WS_event.EVENT_ESTOP);
+    });
+
+    function sendWSNewTimeout(timeout) {
+      if (ws.readyState === WebSocket.OPEN) {
+        setTimeout(() => sendWSBinaryControl(WS_value.CONFIG_WS_TIMEOUT, timeout), 100);
+      } else {
+        setTimeout(() => sendWSNewTimeout(timeout), 100);
+      }
+    }
+    fetchCalibration();
+    updateDisplay();
+    setTimeout(() => sendWSNewTimeout(20000), 100);
+  </script>
+</body>
+</html>

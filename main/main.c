@@ -24,6 +24,7 @@
 // #include "font8x8_basic.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include <stdbool.h>
 
 
 // --- Define variables, classes ---
@@ -66,6 +67,23 @@ servo_config_t topCfg = {
     .max_degree = 90,
     .period_ticks = 20000,
     .resolution_hz = 1000000,
+};
+
+PID_config_t pid_speed_cfg = {
+    .kp = 700,
+    .ki = 500,
+    .kd = 100,
+    .d_alpha = 10,
+    .dt_ms = 50,
+    .integrator_deadband = 0.8f
+};
+PID_config_t pid_angle_cfg = {
+    .kp = 300,
+    .ki = 50,
+    .kd = 100,
+    .d_alpha = 60,
+    .dt_ms = 200,
+    .integrator_deadband = 0.2f
 };
 battery_type_t batteryType = BATTERY_6xNiMH; ///< Type of battery used in the car
 
@@ -158,6 +176,9 @@ void app_main(void)
     motor_config.enc_a = CONFIG_PIN_MOT_ENC_A;
     motor_config.enc_b = CONFIG_PIN_MOT_ENC_B;
     motor_config.enc_pulses_per_rev = 180;
+
+    motor_config.pid_speed_config = pid_speed_cfg;
+    motor_config.pid_angle_config = pid_angle_cfg;
 
     ESP_ERROR_CHECK(BDC_motor_PID_init(&motor, &motor_config));
 
@@ -255,6 +276,10 @@ void load_nvs_calibration() {
         nvs_get_blob(nvs_handle, "steering_cfg", &steeringCfg, &len);
         len = sizeof(topCfg);
         nvs_get_blob(nvs_handle, "top_cfg", &topCfg, &len);
+        len = sizeof(pid_speed_cfg);
+        nvs_get_blob(nvs_handle, "pid_speed_cfg", &pid_speed_cfg, &len);
+        len = sizeof(pid_angle_cfg);
+        nvs_get_blob(nvs_handle, "pid_angle_cfg", &pid_angle_cfg, &len);
         nvs_close(nvs_handle);
     } else {
         ESP_LOGE(__FILE__, "Failed to open NVS for saving config: %s", esp_err_to_name(err));
@@ -267,11 +292,35 @@ void save_nvs_calibration() {
     if (err == ESP_OK) {
         nvs_set_blob(nvs_handle, "steering_cfg", &steeringCfg, sizeof(steeringCfg));
         nvs_set_blob(nvs_handle, "top_cfg", &topCfg, sizeof(topCfg));
+        nvs_set_blob(nvs_handle, "pid_speed_cfg", &pid_speed_cfg, sizeof(pid_speed_cfg));
+        nvs_set_blob(nvs_handle, "pid_angle_cfg", &pid_angle_cfg, sizeof(pid_angle_cfg));
         nvs_commit(nvs_handle);
         nvs_close(nvs_handle);
         ESP_LOGI(__FILE__, "NVS calibration saved successfully");
     } else {
         ESP_LOGE(__FILE__, "Failed to open NVS for saving config: %s", esp_err_to_name(err));
+    }
+}
+
+/*
+ * Runtime helper: reload calibration blobs from NVS and apply to hardware
+ */
+void load_nvs_calibration_and_apply() {
+    // reload blobs into globals
+    load_nvs_calibration();
+    // apply steering/top cfg to servos if initialized
+    if (steeringServo) {
+        servo_set_nim_max_pulsewidth(steeringServo, steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us);
+        servo_set_nim_max_degree(steeringServo, steeringCfg.min_degree, steeringCfg.max_degree);
+    }
+    if (topServo) {
+        servo_set_nim_max_pulsewidth(topServo, topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us);
+        servo_set_nim_max_degree(topServo, topCfg.min_degree, topCfg.max_degree);
+    }
+    // apply PID configs to motor if available
+    if (motor) {
+        BDC_motor_PID_set_pid_speed_config(motor, &pid_speed_cfg);
+        BDC_motor_PID_set_pid_angle_config(motor, &pid_angle_cfg);
     }
 }
 

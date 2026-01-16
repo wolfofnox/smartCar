@@ -23,4 +23,4 @@ dependencies:
   BDC-motor-PID:
     git: https://github.com/wolfofnox/BDC-motor-PID.git
     path: "."
-    version: v0.1.0
+    version: v0.2.2

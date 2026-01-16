@@ -24,10 +24,13 @@ extern servo_handle_t steeringServo;
 extern servo_handle_t topServo;
 extern BDC_motor_PID_handle_t motor;
 
+extern PID_config_t pid_speed_cfg;
+extern PID_config_t pid_angle_cfg;
 extern servo_config_t steeringCfg; ///< Steering servo configuration
 extern servo_config_t topCfg; ///< Top servo configuration
 
 extern void save_nvs_calibration(); ///< Save configuration to NVS
+extern void load_nvs_calibration_and_apply(); ///< Reload calibration from NVS and apply to HW
 
 static TimerHandle_t ws_watchdog_timer = NULL; ///< WebSocket timeout watchdog timer handle
 
@@ -85,15 +88,23 @@ void set_handlers() {
  * @brief HTTP handler for returning JSON data about the ESP32 status.
  */
 esp_err_t status_json_handler(httpd_req_t *req) {
-    char json[300];
+    char json[700];
     int free_heap = heap_caps_get_free_size(MALLOC_CAP_DEFAULT);
     int total_heap = heap_caps_get_total_size(MALLOC_CAP_DEFAULT);
-    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"freeHeap\": %d, \"totalHeap\": %d, \"version\": \"%s\", \"speed\": %d, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d}",
+    BDC_motor_PID_cfg_t cfg;
+    if (motor) {
+        BDC_motor_PID_get_config(motor, &cfg);
+    } else {
+        memset(&cfg, 0, sizeof(cfg));
+    }
+    snprintf(json, sizeof(json), "{\"uptime\": %lli, \"freeHeap\": %d, \"totalHeap\": %d, \"version\": \"%s\", \"speed\": %f, \"steering\": %d, \"top\": %d, \"steeringMinPWM\": %li, \"steeringMaxPWM\": %li, \"steeringMinAngle\": %d, \"steeringMaxAngle\": %d, \"topMinPWM\": %li, \"topMaxPWM\": %li, \"topMinAngle\": %d, \"topMaxAngle\": %d, \"pidSpeedKp\": %u, \"pidSpeedKi\": %u, \"pidSpeedKd\": %u, \"pidSpeedDalpha\": %u, \"pidSpeedIdeadband\": %.3f, \"pidAngleKp\": %u, \"pidAngleKi\": %u, \"pidAngleKd\": %u, \"pidAngleDalpha\": %u, \"pidAngleIdeadband\": %.3f}",
              (esp_timer_get_time() - bootTime) / 1000, free_heap, total_heap, CONFIG_VERSION,
-            servo_get_angle(steeringServo), servo_get_angle(topServo), BDC_motor_PID_get_speed(motor),
+            BDC_motor_PID_get_speed(motor), servo_get_angle(steeringServo), servo_get_angle(topServo),
             steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us, steeringCfg.min_degree, steeringCfg.max_degree,
-            topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us, topCfg.min_degree, topCfg.max_degree);
-    ESP_LOGD(TAG, "JSON data requested: %s", json);
+            topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us, topCfg.min_degree, topCfg.max_degree,
+            cfg.pid_speed_config.kp, cfg.pid_speed_config.ki, cfg.pid_speed_config.kd, cfg.pid_speed_config.d_alpha, cfg.pid_speed_config.integrator_deadband,
+            cfg.pid_angle_config.kp, cfg.pid_angle_config.ki, cfg.pid_angle_config.kd, cfg.pid_angle_config.d_alpha, cfg.pid_angle_config.integrator_deadband);
+    ESP_LOGV(TAG, "JSON data requested: %s", json);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, json, strlen(json));
 }
@@ -177,14 +188,21 @@ esp_err_t websocket_handler(httpd_req_t *req) {
             case EVENT_ESTOP:
                 servo_set_angle(steeringServo, 0);
                 servo_set_angle(topServo, 0);
-                BDC_motor_PID_set_speed(motor, 0);
+                BDC_motor_PID_stop(motor);
                 ESP_LOGV(TAG_WS, "Emergency stop activated");
                 break;
             case EVENT_REVERT_SETTINGS:
-                ESP_LOGV(TAG_WS, "Reverting to default settings");
-                servo_set_nim_max_pulsewidth(steeringServo, steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us);
-                servo_set_nim_max_pulsewidth(topServo, topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us);
+                ESP_LOGV(TAG_WS, "Reverting to saved NVS settings");
+                load_nvs_calibration_and_apply();
                 BDC_motor_PID_set_speed(motor, 0); // Stop the motor
+                break;
+            case EVENT_SAVE_SETTINGS:
+                ESP_LOGV(TAG_WS, "Saving current settings to NVS");
+                BDC_motor_PID_cfg_t cfg;
+                BDC_motor_PID_get_config(motor, &cfg);
+                pid_speed_cfg = cfg.pid_speed_config;
+                pid_angle_cfg = cfg.pid_angle_config;
+                save_nvs_calibration();
                 break;
             default:
                 ESP_LOGW(TAG_WS, "Unknown event id: 0x%2X", event_id);
@@ -256,6 +274,96 @@ esp_err_t websocket_handler(httpd_req_t *req) {
                     ESP_LOGW(TAG_WS, "Invalid ws timeout value received: %d", packet->value);
                 }
                 break;
+            case CONFIG_PID_SPEED_KP: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_speed_config.kp = (uint16_t)packet->value;
+                    BDC_motor_PID_set_pid_speed_config(motor, &cfg.pid_speed_config);
+                    ESP_LOGV(TAG_WS, "Set PID speed Kp to %u", cfg.pid_speed_config.kp);
+                }
+                break;
+            }
+            case CONFIG_PID_SPEED_KI: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_speed_config.ki = (uint16_t)packet->value;
+                    BDC_motor_PID_set_pid_speed_config(motor, &cfg.pid_speed_config);
+                    ESP_LOGV(TAG_WS, "Set PID speed Ki to %u", cfg.pid_speed_config.ki);
+                }
+                break;
+            }
+            case CONFIG_PID_SPEED_KD: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_speed_config.kd = (uint16_t)(packet->value < 0 ? 0 : packet->value);
+                    BDC_motor_PID_set_pid_speed_config(motor, &cfg.pid_speed_config);
+                    ESP_LOGV(TAG_WS, "Set PID speed Kd to %u", cfg.pid_speed_config.kd);
+                }
+                break;
+            }
+            case CONFIG_PID_SPEED_D_ALPHA: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_speed_config.d_alpha = (uint16_t)packet->value;
+                    BDC_motor_PID_set_pid_speed_config(motor, &cfg.pid_speed_config);
+                    ESP_LOGV(TAG_WS, "Set PID speed d_alpha to %u", cfg.pid_speed_config.d_alpha);
+                }
+                break;
+            }
+            case CONFIG_PID_SPEED_I_DEADBAND: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_speed_config.integrator_deadband = (float)packet->value;
+                    BDC_motor_PID_set_pid_speed_config(motor, &cfg.pid_speed_config);
+                    ESP_LOGV(TAG_WS, "Set PID speed integrator deadband to %.3f", cfg.pid_speed_config.integrator_deadband);
+                }
+                break;
+            }
+            case CONFIG_PID_ANGLE_KP: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_angle_config.kp = (uint16_t)packet->value;
+                    BDC_motor_PID_set_pid_angle_config(motor, &cfg.pid_angle_config);
+                    ESP_LOGV(TAG_WS, "Set PID angle Kp to %u", cfg.pid_angle_config.kp);
+                }
+                break;
+            }
+            case CONFIG_PID_ANGLE_KI: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_angle_config.ki = (uint16_t)packet->value;
+                    BDC_motor_PID_set_pid_angle_config(motor, &cfg.pid_angle_config);
+                    ESP_LOGV(TAG_WS, "Set PID angle Ki to %u", cfg.pid_angle_config.ki);
+                }
+                break;
+            }
+            case CONFIG_PID_ANGLE_KD: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_angle_config.kd = (uint16_t)(packet->value < 0 ? 0 : packet->value);
+                    BDC_motor_PID_set_pid_angle_config(motor, &cfg.pid_angle_config);
+                    ESP_LOGV(TAG_WS, "Set PID angle Kd to %u", cfg.pid_angle_config.kd);
+                }
+                break;
+            }
+            case CONFIG_PID_ANGLE_D_ALPHA: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_angle_config.d_alpha = (uint16_t)packet->value;
+                    BDC_motor_PID_set_pid_angle_config(motor, &cfg.pid_angle_config);
+                    ESP_LOGV(TAG_WS, "Set PID angle d_alpha to %u", cfg.pid_angle_config.d_alpha);
+                }
+                break;
+            }
+            case CONFIG_PID_ANGLE_I_DEADBAND: {
+                BDC_motor_PID_cfg_t cfg;
+                if (BDC_motor_PID_get_config(motor, &cfg) == ESP_OK) {
+                    cfg.pid_angle_config.integrator_deadband = (float)packet->value;
+                    BDC_motor_PID_set_pid_angle_config(motor, &cfg.pid_angle_config);
+                    ESP_LOGV(TAG_WS, "Set PID angle integrator deadband to %.3f", cfg.pid_angle_config.integrator_deadband);
+                }
+                break;
+            }
             default:
                 ESP_LOGW(TAG_WS, "Unknown control type: 0x%2X, value: 0x%4X", packet->type, packet->value);
         }
@@ -291,11 +399,8 @@ void ws_watchdog_callback(TimerHandle_t xTimer) {
     ESP_LOGD(TAG_WS, "WebSocket timed out, resetting power save mode");
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM); // Re-enable power save mode
     
-    // Restore servo config from global variables
-    servo_set_nim_max_pulsewidth(steeringServo, steeringCfg.min_pulsewidth_us, steeringCfg.max_pulsewidth_us);
-    servo_set_nim_max_degree(steeringServo, steeringCfg.min_degree, steeringCfg.max_degree);
-    servo_set_nim_max_pulsewidth(topServo, topCfg.min_pulsewidth_us, topCfg.max_pulsewidth_us);
-    servo_set_nim_max_degree(topServo, topCfg.min_degree, topCfg.max_degree);
+    // Restore calibration from NVS
+    load_nvs_calibration_and_apply();
 
     if (ws_socket_fd != -1) {
         uint8_t payload = (uint8_t)EVENT_TIMEOUT;
